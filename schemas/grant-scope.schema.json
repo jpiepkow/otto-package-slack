@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.grant_scope",
+  "title": "Default Slack grant scope",
+  "description": "Per-job Slack authority. Credentials live on the selected connection; grants only narrow tools, channels, users, and bounds.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "max_thread_messages", "max_message_chars", "max_body_chars"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["read", "trigger", "send"]
+    },
+    "workspace_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96
+    },
+    "max_thread_messages": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 20
+    },
+    "max_message_chars": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 4000,
+      "default": 1200
+    },
+    "max_body_chars": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 2000,
+      "default": 1200
+    },
+    "max_dm_channels": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 10
+    },
+    "messages_per_dm": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5
+    },
+    "allow_send_validation": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

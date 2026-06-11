@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.send_message_input",
+  "title": "Slack send input",
+  "description": "Arguments for an explicitly approved Slack send request.",
+  "type": "object",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "anyOf": [
+        { "required": ["channel_id"] },
+        { "required": ["channel_ref"] },
+        { "required": ["channel"] },
+        { "required": ["user_id"] },
+        { "required": ["user"] },
+        { "required": ["recipient_id"] },
+        { "required": ["recipient"] }
+      ]
+    },
+    {
+      "anyOf": [
+        { "required": ["text"] },
+        { "required": ["body"] },
+        { "required": ["message"] }
+      ]
+    }
+  ],
+  "properties": {
+    "channel_id": {
+      "description": "Real Slack channel ID such as C..., G..., or D.... Do not put a human name here.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "channel_ref": {
+      "description": "Opaque Otto channel reference returned by Slack read/list/open tools.",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120
+    },
+    "channel": {
+      "description": "Slack channel name such as #incidents. For people/DMs, use user_id instead.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "user_id": {
+      "description": "Real Slack user ID such as U... or W... for sending a DM. If the user gives a name like John, call list_users first and pass the returned user_id.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "user": {
+      "description": "Slack user ID or human name for a DM. Prefer user_id from list_users to avoid ambiguity.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "recipient_id": {
+      "description": "Alias for user_id when the target is a Slack DM recipient.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "recipient": {
+      "description": "Alias for user. Prefer a real Slack user ID from list_users.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "thread_ts": {
+      "description": "Optional Slack thread timestamp for channel replies.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "thread_ref": {
+      "description": "Optional Otto thread reference returned by read tools.",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120
+    },
+    "text": {
+      "description": "Message body to send after approval.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "body": {
+      "description": "Alias for text.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "message": {
+      "description": "Alias for text.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "approval_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120
+    }
+  }
+}

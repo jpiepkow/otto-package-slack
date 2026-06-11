@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.redaction_input",
+  "title": "Slack redaction input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "credential_ref",
+    "workspace_ref",
+    "channel_ref",
+    "message_refs",
+    "bounded_message_content",
+    "fields"
+  ],
+  "properties": {
+    "credential_ref": {
+      "$ref": "#/$defs/credential_ref"
+    },
+    "workspace_ref": {
+      "$ref": "#/$defs/workspace_ref"
+    },
+    "channel_ref": {
+      "$ref": "#/$defs/channel_ref"
+    },
+    "thread_ref": {
+      "$ref": "#/$defs/thread_ref"
+    },
+    "message_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/message_ref"
+      }
+    },
+    "bounded_message_content": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "maxLength": 2000
+      }
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "credential_ref",
+          "workspace_ref",
+          "channel_ref",
+          "thread_ref",
+          "message_ref",
+          "author_ref",
+          "bounded_message_content"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "credential_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96,
+      "pattern": "^cred\\.[a-z0-9][a-z0-9._-]{1,94}$"
+    },
+    "workspace_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96,
+      "pattern": "^workspace\\.[a-z0-9][a-z0-9._-]{1,94}$"
+    },
+    "channel_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96,
+      "pattern": "^channel\\.[a-z0-9][a-z0-9._-]{1,94}$"
+    },
+    "thread_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120,
+      "pattern": "^thread\\.[a-z0-9][a-z0-9._-]{1,118}$"
+    },
+    "message_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120,
+      "pattern": "^message\\.[a-z0-9][a-z0-9._-]{1,118}$"
+    }
+  }
+}

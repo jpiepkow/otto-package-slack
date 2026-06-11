@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.search_messages_input",
+  "title": "Slack search input",
+  "description": "Arguments for searching Slack workspace messages. User-token connections only (requires search:read). Connection credentials and grants are provided by Otto outside this argument object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["query"],
+  "properties": {
+    "query": {
+      "description": "Slack search query, e.g. words or in:#channel from:@user.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "count": {
+      "description": "Maximum number of matching messages to return.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 20
+    }
+  }
+}

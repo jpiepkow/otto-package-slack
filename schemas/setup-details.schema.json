@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.setup_details",
+  "title": "Default Slack setup details",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["ready", "fake_mode", "supported_modes", "limits", "redaction"],
+  "properties": {
+    "ready": {
+      "type": "boolean"
+    },
+    "fake_mode": {
+      "type": "boolean"
+    },
+    "auth_identity": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["bot", "user"]
+      }
+    },
+    "identity_rule": {
+      "type": "string"
+    },
+    "socket_mode": {
+      "type": "boolean"
+    },
+    "workspace_ref": {
+      "type": "string",
+      "maxLength": 96
+    },
+    "attribution_enabled": {
+      "type": "boolean",
+      "description": "When true, outgoing messages (sends and thread replies) carry a transparency footer naming the human approver. Transparency label only; does not affect draft-by-default or approval gating."
+    },
+    "attribution_name": {
+      "type": "string",
+      "maxLength": 96,
+      "description": "Approver name substituted for {Name} in the attribution footer."
+    },
+    "attribution_template": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Attribution footer template; {Name} is replaced with attribution_name."
+    },
+    "configured_channel_refs": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 120
+      }
+    },
+    "supported_modes": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["read", "trigger", "send"]
+      }
+    },
+    "supported_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["max_thread_messages", "max_message_chars", "max_body_chars"],
+      "properties": {
+        "max_thread_messages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "max_message_chars": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 4000
+        },
+        "max_body_chars": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 2000
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["message_content", "credential_refs"],
+      "properties": {
+        "message_content": {
+          "type": "string",
+          "enum": ["bounded"]
+        },
+        "credential_refs": {
+          "type": "string",
+          "enum": ["opaque"]
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "maxLength": 200
+      }
+    }
+  }
+}

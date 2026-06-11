@@ -1,0 +1,110 @@
+{
+  "form_id": "slack_setup",
+  "schema_ref": "schema.default.slack.setup_details",
+  "title": "Slack connection",
+  "description": "Configure one Slack identity for Web API calls. Add an app-level token only when this connection should receive Slack triggers.",
+  "fields": [
+    {
+      "name": "auth_identity",
+      "label": "Identity",
+      "kind": "select",
+      "required": true,
+      "default": "bot",
+      "options": ["bot", "user"],
+      "description": "Choose whether this connection acts as a Slack bot app or as a user token. A connection uses exactly one identity."
+    },
+    {
+      "name": "identity_token",
+      "label": "Bot or user token",
+      "kind": "password",
+      "required": true,
+      "x-otto-credential-target": "identity_token_ref",
+      "validation_call": "validate_identity_token",
+      "description": "Slack Web API token for the selected identity. Use xoxb- for bot connections or xoxp-/xoxc-style user tokens for personal connections."
+    },
+    {
+      "name": "socket_app_token",
+      "label": "Socket Mode app token",
+      "kind": "password",
+      "required": false,
+      "x-otto-credential-target": "socket_app_token_ref",
+      "validation_call": "validate_socket_app_token",
+      "description": "Optional Slack app-level xapp- token. When omitted, read/send tools still work but Slack triggers are unavailable."
+    },
+    {
+      "name": "workspace_ref",
+      "label": "Workspace reference",
+      "kind": "text",
+      "required": true,
+      "default": "workspace.slack.{{connection.alias_prefix}}",
+      "max_length": 96,
+      "description": "Stable local label for this Slack workspace. It is used in audit records and redacted tool output, not sent to Slack."
+    },
+    {
+      "name": "max_thread_messages",
+      "label": "Max thread messages",
+      "kind": "number",
+      "required": true,
+      "minimum": 1,
+      "maximum": 50,
+      "default": 20,
+      "description": "Maximum number of messages Otto may read from a single Slack thread."
+    },
+    {
+      "name": "max_message_chars",
+      "label": "Max message chars",
+      "kind": "number",
+      "required": true,
+      "minimum": 100,
+      "maximum": 4000,
+      "default": 1200,
+      "description": "Maximum characters retained from each Slack message before tool output is bounded and redacted."
+    },
+    {
+      "name": "max_body_chars",
+      "label": "Max send body chars",
+      "kind": "number",
+      "required": true,
+      "minimum": 100,
+      "maximum": 2000,
+      "default": 1200,
+      "description": "Maximum characters Otto may send after approval."
+    },
+    {
+      "name": "attribution_enabled",
+      "label": "Append attribution footer",
+      "kind": "boolean",
+      "required": false,
+      "default": false,
+      "description": "When on, outgoing Slack messages (sends and thread replies) carry a transparency footer naming the human approver. This is a trust/transparency label only — it does not change draft-by-default or approval gating."
+    },
+    {
+      "name": "attribution_name",
+      "label": "Approver name",
+      "kind": "text",
+      "required": false,
+      "max_length": 96,
+      "validation_call": "preview_attribution",
+      "description": "Name shown in the attribution footer (substituted for {Name}). Leave blank to use a generic label."
+    },
+    {
+      "name": "attribution_template",
+      "label": "Attribution template",
+      "kind": "text",
+      "required": false,
+      "max_length": 200,
+      "default": "— Reviewed & approved to send via Otto",
+      "validation_call": "preview_attribution",
+      "description": "Footer template appended to outgoing messages. Works as-is; optionally add {Name} where the approver name should appear (set Approver name above). Preview the rendered footer below."
+    }
+  ],
+  "fixture": {
+    "auth_identity": "bot",
+    "workspace_ref": "workspace.slack.{{connection.alias_prefix}}",
+    "max_thread_messages": 20,
+    "max_message_chars": 1200,
+    "max_body_chars": 1200,
+    "attribution_enabled": false,
+    "attribution_template": "— Reviewed & approved to send via Otto"
+  }
+}

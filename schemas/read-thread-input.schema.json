@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.read_thread_input",
+  "title": "Slack read input",
+  "description": "Arguments for reading a Slack channel, thread, DM, or conversation list. Connection credentials and grants are provided by Otto outside this argument object.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "channel_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "channel_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "dm_channel_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "user_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "user": {
+      "description": "Slack user ID or human name to resolve. Prefer list_users first and then pass user_id when opening or reading DMs.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "query": {
+      "description": "Search text for list_users. Use this for a person's name before sending a DM.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "name": {
+      "description": "Alias for query when searching Slack users.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "thread_ts": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "thread_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120
+    },
+    "ts": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "max_messages": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50
+    },
+    "max_dm_channels": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "max_channels": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "messages_per_dm": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "messages_per_channel": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "types": {
+      "type": "string",
+      "maxLength": 160
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "form_id": "slack_grant",
+  "schema_ref": "schema.default.slack.grant_scope",
+  "title": "Slack grant",
+  "description": "Narrow a configured Slack connection for a job or session.",
+  "fields": [
+    {
+      "name": "mode",
+      "label": "Mode",
+      "kind": "select",
+      "required": true,
+      "default": "read",
+      "options": ["read", "trigger", "send"],
+      "description": "Authority for this specific job or session grant. Pick read, trigger, or send per granted tool; the underlying Slack connection can support multiple grants."
+    },
+    {
+      "name": "max_thread_messages",
+      "label": "Max thread messages",
+      "kind": "number",
+      "required": true,
+      "minimum": 1,
+      "maximum": 50,
+      "default": 20,
+      "description": "Maximum number of messages this grant may read from one Slack thread."
+    },
+    {
+      "name": "max_message_chars",
+      "label": "Max message chars",
+      "kind": "number",
+      "required": true,
+      "minimum": 100,
+      "maximum": 4000,
+      "default": 1200,
+      "description": "Maximum characters retained from each Slack message for this grant."
+    },
+    {
+      "name": "max_body_chars",
+      "label": "Max send chars",
+      "kind": "number",
+      "required": true,
+      "minimum": 100,
+      "maximum": 2000,
+      "default": 1200,
+      "description": "Maximum characters this grant may send after approval."
+    },
+    {
+      "name": "max_dm_channels",
+      "label": "Max DM conversations",
+      "kind": "number",
+      "required": true,
+      "minimum": 1,
+      "maximum": 20,
+      "default": 10,
+      "description": "Maximum number of DM conversations this grant may inspect when using recent DM tools."
+    },
+    {
+      "name": "messages_per_dm",
+      "label": "Messages per DM",
+      "kind": "number",
+      "required": true,
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5,
+      "description": "Maximum messages read from each DM conversation."
+    }
+  ],
+  "fixture": {
+    "mode": "read",
+    "max_thread_messages": 20,
+    "max_message_chars": 1200,
+    "max_body_chars": 1200,
+    "max_dm_channels": 10,
+    "messages_per_dm": 5,
+    "allow_send_validation": false
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.send_message_output",
+  "title": "Validate Slack message send output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "validated",
+    "send_attempted",
+    "send_permitted",
+    "approval_ref",
+    "status"
+  ],
+  "properties": {
+    "validated": {
+      "type": "boolean"
+    },
+    "send_attempted": {
+      "type": "boolean",
+      "const": false
+    },
+    "send_permitted": {
+      "type": "boolean"
+    },
+    "approval_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120,
+      "pattern": "^approval\\.[a-z0-9][a-z0-9._-]{1,118}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["validation_only", "rejected", "approved_for_external_send"]
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 300
+    }
+  }
+}

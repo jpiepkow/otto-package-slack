@@ -1,0 +1,40 @@
+[package]
+name = "otto-package-slack"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[lib]
+name = "otto_tool_slack"
+path = "src/lib.rs"
+
+[[bin]]
+name = "otto-tool-slack"
+path = "src/bin/otto-tool-slack.rs"
+
+[dependencies]
+futures-util = "0.3.32"
+otto-extension-sdk = { git = "ssh://git@github.com/jpiepkow/otto.git", tag = "sdk-v0.1.0" }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "form", "stream", "rustls"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "time", "sync", "process", "io-util", "io-std"] }
+tokio-tungstenite = { version = "0.29.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }
+
+[dev-dependencies]
+anyhow = "1.0.102"
+assert_cmd = "2.2.2"
+toml = "1.1.2"

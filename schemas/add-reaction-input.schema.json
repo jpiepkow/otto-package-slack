@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.add_reaction_input",
+  "title": "Slack add-reaction input",
+  "description": "Arguments for adding an emoji reaction to a Slack message. Connection credentials and grants are provided by Otto outside this argument object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["channel", "timestamp", "name"],
+  "properties": {
+    "channel": {
+      "description": "Real Slack channel ID (C.../G.../D...) containing the message to react to.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "timestamp": {
+      "description": "The Slack message timestamp (ts) to react to.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "name": {
+      "description": "Emoji name WITHOUT surrounding colons, e.g. white_check_mark.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    }
+  }
+}

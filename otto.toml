@@ -1,0 +1,252 @@
+schema_version = 1
+package_id = "com.otto.slack"
+display_name = "Default Slack Tools"
+protocol_version = "otto.extension.rpc.v1"
+icon = "assets/icon.svg"
+migrations = []
+
+[runtime]
+command = "bin/otto-tool-slack"
+args = []
+idle_timeout_ms = 30000
+health_timeout_ms = 10000
+
+[build]
+command = "cargo build --release && mkdir -p bin && cp target/release/otto-tool-slack bin/otto-tool-slack"
+
+[provides.tools]
+version = 1
+
+[provides.triggers]
+version = 1
+
+[provides.channel]
+version = 1
+
+[provides.notification]
+version = 1
+
+[[roles]]
+id = "role.default.tool.slack"
+kind = "tool_package"
+display_name = "Default Slack tool package"
+capabilities = ["cap.default.slack.read", "cap.default.slack.trigger", "cap.default.slack.send"]
+
+[[schemas]]
+id = "schema.default.slack.setup_details"
+path = "schemas/setup-details.schema.json"
+description = "Slack setup-check details for real Web API and Socket Mode readiness."
+
+[[schemas]]
+id = "schema.default.slack.grant_scope"
+path = "schemas/grant-scope.schema.json"
+description = "Slack tool package grant scope with credential, workspace, channel, and bounded content limits."
+
+[[schemas]]
+id = "schema.default.slack.message_event"
+path = "schemas/message-event.schema.json"
+description = "Slack message trigger envelope with cursor and dedupe identity."
+
+[[schemas]]
+id = "schema.default.slack.read_thread_input"
+path = "schemas/read-thread-input.schema.json"
+description = "Input for bounded Slack thread reads."
+
+[[schemas]]
+id = "schema.default.slack.read_thread_output"
+path = "schemas/read-thread-output.schema.json"
+description = "Output for bounded Slack thread reads."
+
+[[schemas]]
+id = "schema.default.slack.search_messages_input"
+path = "schemas/search-messages-input.schema.json"
+description = "Input for searching Slack workspace messages (query, count)."
+
+[[schemas]]
+id = "schema.default.slack.add_reaction_input"
+path = "schemas/add-reaction-input.schema.json"
+description = "Input for adding an emoji reaction to a Slack message (channel, timestamp, name)."
+
+[[schemas]]
+id = "schema.default.slack.send_message_input"
+path = "schemas/send-message-input.schema.json"
+description = "Validation-only input for an explicitly approved Slack send request."
+
+[[schemas]]
+id = "schema.default.slack.send_message_output"
+path = "schemas/send-message-output.schema.json"
+description = "Validation-only output for a Slack send request."
+
+[[schemas]]
+id = "schema.default.slack.redaction_input"
+path = "schemas/redaction-input.schema.json"
+description = "Slack redaction input for bounded message content and credential-like references."
+
+[[schemas]]
+id = "schema.default.slack.setup_form"
+path = "ui/setup.form.json"
+description = "Slack setup form for bot or user Web API identity plus Socket Mode."
+
+[[schemas]]
+id = "schema.default.slack.grant_form"
+path = "ui/grant.form.json"
+description = "Slack grant form fixture."
+
+[[tools]]
+id = "tool.default.slack.read_thread"
+display_name = "Read Slack thread"
+description = "Read messages from a specific Slack thread. Requires a Slack channel ID or channel reference plus a thread timestamp/reference. Use list_conversations for channel discovery and list_users/open_dm for DM discovery before reading a DM thread."
+input_schema = "schema.default.slack.read_thread_input"
+required_capabilities = ["cap.default.slack.read"]
+requires_approval = false
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
+
+[[tools]]
+id = "tool.default.slack.read_channel"
+display_name = "Read Slack channel"
+description = "Read recent messages from one Slack channel. Prefer channel_id with a real Slack channel ID such as C.../G.../D..., or channel with a #channel name. Do not pass a human name here; use list_users/open_dm for people and DMs."
+input_schema = "schema.default.slack.read_thread_input"
+required_capabilities = ["cap.default.slack.read"]
+requires_approval = false
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
+
+[[tools]]
+id = "tool.default.slack.read_recent_dms"
+display_name = "Read recent Slack DMs"
+description = "Read recent direct-message conversations visible to this Slack token. Use when the user asks about DMs generally. Output includes DM channel/user references that can be used by read/open/send tools."
+input_schema = "schema.default.slack.read_thread_input"
+required_capabilities = ["cap.default.slack.read"]
+requires_approval = false
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
+
+[[tools]]
+id = "tool.default.slack.list_conversations"
+display_name = "List Slack conversations"
+description = "List Slack channels, private channels, DMs, and group DMs visible to this token. Use this before reading or sending when the user gives a channel name, DM, or ambiguous conversation reference."
+input_schema = "schema.default.slack.read_thread_input"
+required_capabilities = ["cap.default.slack.read"]
+requires_approval = false
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
+
+[[tools]]
+id = "tool.default.slack.list_users"
+display_name = "List Slack users"
+description = "Find Slack users visible to this token. Use this before opening a DM or sending a DM when the user gives a person's name. Prefer the returned user_id (U.../W...) in open_dm or send_message."
+input_schema = "schema.default.slack.read_thread_input"
+required_capabilities = ["cap.default.slack.read"]
+requires_approval = false
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
+
+[[tools]]
+id = "tool.default.slack.open_dm"
+display_name = "Open Slack DM"
+description = "Open or resolve a Slack DM channel for a user. Requires user_id when possible; user names can be attempted but list_users is more reliable. Returns a DM channel_id/channel_ref for read_channel or send_message."
+input_schema = "schema.default.slack.read_thread_input"
+required_capabilities = ["cap.default.slack.read"]
+requires_approval = false
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
+
+[[tools]]
+id = "tool.default.slack.search_messages"
+display_name = "Search Slack messages"
+description = "Search workspace messages with a Slack search query (words, in:#channel, from:@user). User-token connections only (requires search:read); resolve names via discovery first using list_conversations/list_users."
+input_schema = "schema.default.slack.search_messages_input"
+required_capabilities = ["cap.default.slack.read"]
+requires_approval = false
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
+
+[[tools]]
+id = "tool.default.slack.add_reaction"
+display_name = "Add Slack reaction"
+description = "Add an emoji reaction to a message by channel + ts. Provide the emoji name without colons (e.g. white_check_mark)."
+input_schema = "schema.default.slack.add_reaction_input"
+required_capabilities = ["cap.default.slack.send"]
+requires_approval = true
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = true }
+
+[[tools]]
+id = "tool.default.slack.send_message"
+display_name = "Send Slack message"
+description = "Send a Slack message only after Otto approval. Requires text/body/message plus a real target: channel_id for channels or user_id for DMs. Set thread_ts to reply within / start a thread. If the user gives a person name like 'John', use list_users first to get the Slack user_id, then call send_message with user_id; do not put a human name in channel_id."
+input_schema = "schema.default.slack.send_message_input"
+required_capabilities = ["cap.default.slack.send"]
+requires_approval = true
+runtime_commands = ["slack", "slack-cli"]
+scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = true }
+
+[bundles]
+read = [
+  "tool.default.slack.read_thread",
+  "tool.default.slack.read_channel",
+  "tool.default.slack.read_recent_dms",
+  "tool.default.slack.list_conversations",
+  "tool.default.slack.list_users",
+  "tool.default.slack.open_dm",
+  "tool.default.slack.search_messages",
+]
+write = [
+  "tool.default.slack.send_message",
+  "tool.default.slack.add_reaction",
+]
+all = [
+  "tool.default.slack.read_thread",
+  "tool.default.slack.read_channel",
+  "tool.default.slack.read_recent_dms",
+  "tool.default.slack.list_conversations",
+  "tool.default.slack.list_users",
+  "tool.default.slack.open_dm",
+  "tool.default.slack.search_messages",
+  "tool.default.slack.send_message",
+  "tool.default.slack.add_reaction",
+]
+
+[[triggers]]
+id = "trigger.default.slack.message"
+display_name = "Slack message trigger"
+event_schema = "schema.default.slack.message_event"
+required_capabilities = ["cap.default.slack.trigger"]
+required_scope_fields = ["trigger_channel_ids"]
+
+[[setup_checks]]
+id = "setup.default.slack.ready"
+display_name = "Slack package ready"
+output_schema = "schema.default.slack.setup_details"
+required_capabilities = ["cap.default.slack.read", "cap.default.slack.trigger"]
+
+[[ui_forms]]
+id = "slack_setup"
+display_name = "Slack setup"
+schema = "schema.default.slack.setup_form"
+
+[[ui_forms]]
+id = "slack_grant"
+display_name = "Slack grant"
+schema = "schema.default.slack.grant_form"
+
+[[redaction]]
+id = "redaction.default.slack.message_content"
+display_name = "Slack message content redaction"
+input_schema = "schema.default.slack.redaction_input"
+
+[[capabilities]]
+id = "cap.default.slack.read"
+mode = "read"
+description = "Read bounded Slack thread content through opaque credential, workspace, and channel references."
+
+[[capabilities]]
+id = "cap.default.slack.trigger"
+mode = "read"
+description = "Receive bounded Slack message trigger envelopes with cursor and dedupe identity."
+
+[[capabilities]]
+id = "cap.default.slack.send"
+mode = "send"
+description = "Send an explicitly approved Slack message."

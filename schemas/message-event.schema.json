@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema.default.slack.message_event",
+  "title": "Default Slack message event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_ref",
+    "channel_ref",
+    "channel_id",
+    "thread_ref",
+    "thread_ts",
+    "message_ref",
+    "text",
+    "dedupe_key",
+    "item_scope",
+    "cursor",
+    "bounded_task_context"
+  ],
+  "properties": {
+    "workspace_ref": {
+      "$ref": "#/$defs/workspace_ref"
+    },
+    "channel_ref": {
+      "$ref": "#/$defs/channel_ref"
+    },
+    "channel_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "thread_ref": {
+      "$ref": "#/$defs/thread_ref"
+    },
+    "thread_ts": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "message_ref": {
+      "$ref": "#/$defs/message_ref"
+    },
+    "team_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "dedupe_key": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 240,
+      "pattern": "^[a-z0-9._/-]+$"
+    },
+    "item_scope": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 200,
+      "pattern": "^[a-z0-9._/-]+$"
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 120,
+      "pattern": "^[a-z0-9._:-]+$"
+    },
+    "bounded_task_context": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    },
+    "message_kind": {
+      "type": "string",
+      "enum": ["channel", "dm", "thread_reply"],
+      "default": "channel"
+    },
+    "author_ref": {
+      "$ref": "#/$defs/actor_ref"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "workspace_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96,
+      "pattern": "^workspace\\.[a-z0-9][a-z0-9._-]{1,94}$"
+    },
+    "channel_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96,
+      "pattern": "^channel\\.[a-z0-9][a-z0-9._-]{1,94}$"
+    },
+    "thread_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120,
+      "pattern": "^thread\\.[a-z0-9][a-z0-9._-]{1,118}$"
+    },
+    "message_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120,
+      "pattern": "^message\\.[a-z0-9][a-z0-9._-]{1,118}$"
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 96,
+      "pattern": "^actor\\.[a-z0-9][a-z0-9._-]{1,94}$"
+    }
+  }
+}
