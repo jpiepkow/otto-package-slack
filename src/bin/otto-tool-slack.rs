@@ -2,12 +2,14 @@ use futures_util::{SinkExt, StreamExt};
 use otto_extension_sdk::protocol::{
     HandshakeParams, HandshakeResult, HealthResult, METHOD_HANDSHAKE, METHOD_HEALTH,
     METHOD_REGISTRATIONS_GET, METHOD_SETUP_CALL, METHOD_SETUP_CHECKS_RUN,
-    METHOD_SETUP_FORM_CONFIGURATION, METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE, METHOD_TRIGGERS_EVENT,
-    METHOD_TRIGGERS_SUBSCRIBE, METHOD_TRIGGERS_UNSUBSCRIBE, RegistrationsResult, SetupCallParams,
-    SetupCallResult, SetupCallSpec, SetupCheckRunParams, SetupCheckRunResult,
-    SetupFormConfigurationParams, SetupFormConfigurationResult, ShutdownResult, ToolInvokeParams,
-    ToolInvokeResult, TriggerEventEnvelope, TriggerEventNotification, TriggerSubscribeParams,
-    TriggerSubscribeResult, TriggerUnsubscribeParams, TriggerUnsubscribeResult,
+    METHOD_SETUP_FORM_CONFIGURATION, METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE,
+    METHOD_TRIGGER_FORM_CONFIGURATION, METHOD_TRIGGERS_EVENT, METHOD_TRIGGERS_SUBSCRIBE,
+    METHOD_TRIGGERS_UNSUBSCRIBE, RegistrationsResult, SetupCallParams, SetupCallResult,
+    SetupCallSpec, SetupCheckRunParams, SetupCheckRunResult, SetupFormConfigurationParams,
+    SetupFormConfigurationResult, ShutdownResult, ToolInvokeParams, ToolInvokeResult,
+    TriggerEventEnvelope, TriggerEventNotification, TriggerFormConfigurationParams,
+    TriggerFormConfigurationResult, TriggerSubscribeParams, TriggerSubscribeResult,
+    TriggerUnsubscribeParams, TriggerUnsubscribeResult,
 };
 use otto_extension_sdk::rpc::framing::{read_rpc_frame, write_rpc_frame};
 use otto_tool_slack::{
@@ -113,6 +115,7 @@ impl Runtime {
             })),
             METHOD_SETUP_CHECKS_RUN => self.setup_check(request.params).await,
             METHOD_SETUP_FORM_CONFIGURATION => self.setup_form_configuration(request.params),
+            METHOD_TRIGGER_FORM_CONFIGURATION => self.trigger_form_configuration(request.params),
             METHOD_SETUP_CALL => self.setup_call(request.params).await,
             METHOD_REGISTRATIONS_GET => Ok(json!(RegistrationsResult {
                 registrations: registrations(),
@@ -358,6 +361,46 @@ impl Runtime {
                     blocks_continue: false,
                 },
             ],
+        }))
+    }
+
+    fn trigger_form_configuration(&self, params: Option<Value>) -> RuntimeResult<Value> {
+        let params = decode_params::<TriggerFormConfigurationParams>(params)?;
+        if params.trigger_id != TRIGGER_MESSAGE {
+            return Ok(json!(TriggerFormConfigurationResult {
+                form: json!({}),
+                calls: vec![],
+            }));
+        }
+        let form = json!({
+            "form_id": "slack_trigger_message",
+            "title": "Slack message trigger",
+            "description": "This trigger fires only for messages in the channels selected below. It fails closed: with no channels selected it matches nothing — never a workspace-wide firehose.",
+            "fields": [
+                {
+                    "name": "trigger_channel_ids",
+                    "label": "Trigger channels",
+                    "kind": "string_list",
+                    "required": true,
+                    "min_items": 1,
+                    "options_call": "list_channels",
+                    "description": "Slack channels this trigger listens to. Required: the trigger fails closed and matches nothing without at least one channel."
+                }
+            ]
+        });
+        Ok(json!(TriggerFormConfigurationResult {
+            form,
+            calls: vec![SetupCallSpec {
+                id: "list_channels".to_owned(),
+                kind: "options".to_owned(),
+                display_name: "List Slack channels".to_owned(),
+                description: Some(
+                    "Returns Slack channels visible to the validated token.".to_owned()
+                ),
+                input_schema: None,
+                output_schema: None,
+                blocks_continue: false,
+            }],
         }))
     }
 
@@ -672,13 +715,37 @@ impl Runtime {
                             .await
                             .map_err(|error| RuntimeError::owned(format!("slack_socket_ack_failed: {error}")))?;
                     }
+                    let envelope_type = envelope
+                        .get("type")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    let event_type = envelope
+                        .pointer("/payload/event/type")
+                        .and_then(Value::as_str)
+                        .unwrap_or("-");
+                    let event_channel = envelope
+                        .pointer("/payload/event/channel")
+                        .and_then(Value::as_str)
+                        .unwrap_or("-");
                     if let Some(notification) = slack_notification_from_envelope(
                         &params,
                         &config,
                         &subscription_id,
                         &envelope,
                     ) {
+                        eprintln!(
+                            "slack socket envelope matched: type={envelope_type} event={event_type} channel={event_channel}"
+                        );
                         write_trigger_notification(&self.stdout, &notification).await?;
+                    } else {
+                        let app_id = envelope
+                            .pointer("/connection_info/app_id")
+                            .and_then(Value::as_str)
+                            .unwrap_or("-");
+                        eprintln!(
+                            "slack socket envelope dropped: type={envelope_type} event={event_type} channel={event_channel} app_id={app_id} targets={:?}",
+                            config.trigger_channel_ids
+                        );
                     }
                 }
             }
@@ -2640,5 +2707,80 @@ mod tests {
             search_requires_user_token("xoxp-abc").is_ok(),
             "a valid xoxp- user token must not be rejected"
         );
+    }
+
+    fn test_runtime() -> Runtime {
+        Runtime {
+            client: reqwest::Client::new(),
+            fake_mode: true,
+            subscriptions: Arc::new(Mutex::new(HashMap::new())),
+            stdout: Arc::new(Mutex::new(tokio::io::stdout())),
+        }
+    }
+
+    fn trigger_form_params(trigger_id: &str) -> Option<Value> {
+        Some(json!({
+            "connection": {
+                "package_id": PACKAGE_ID,
+                "connection_id": "conn-slack-test",
+                "name": "Test Slack",
+                "alias_prefix": "test_slack",
+                "account_hint": null
+            },
+            "config": {},
+            "secrets": {},
+            "trigger_id": trigger_id
+        }))
+    }
+
+    #[test]
+    fn trigger_form_for_message_trigger_requires_channel_picker() {
+        let runtime = test_runtime();
+        let result = runtime
+            .trigger_form_configuration(trigger_form_params(TRIGGER_MESSAGE))
+            .expect("message trigger form is returned");
+        let result: TriggerFormConfigurationResult =
+            serde_json::from_value(result).expect("result decodes");
+
+        let fields = result
+            .form
+            .get("fields")
+            .and_then(Value::as_array)
+            .expect("form declares fields");
+        let channel_field = fields
+            .iter()
+            .find(|field| field.get("name").and_then(Value::as_str) == Some("trigger_channel_ids"))
+            .expect("trigger_channel_ids field exists");
+        assert_eq!(
+            channel_field.get("required").and_then(Value::as_bool),
+            Some(true),
+            "trigger_channel_ids must be required"
+        );
+        assert_eq!(
+            channel_field.get("kind").and_then(Value::as_str),
+            Some("string_list"),
+            "trigger_channel_ids must be a string_list"
+        );
+        assert_eq!(
+            channel_field.get("options_call").and_then(Value::as_str),
+            Some("list_channels"),
+            "trigger_channel_ids must load options from list_channels"
+        );
+        assert!(
+            result.calls.iter().any(|call| call.id == "list_channels"),
+            "calls must include list_channels"
+        );
+    }
+
+    #[test]
+    fn trigger_form_for_unknown_trigger_is_empty_not_error() {
+        let runtime = test_runtime();
+        let result = runtime
+            .trigger_form_configuration(trigger_form_params("trigger.default.slack.unknown"))
+            .expect("unknown trigger id yields an Ok empty form");
+        let result: TriggerFormConfigurationResult =
+            serde_json::from_value(result).expect("result decodes");
+        assert_eq!(result.form, json!({}), "form must be an empty object");
+        assert!(result.calls.is_empty(), "calls must be empty");
     }
 }
