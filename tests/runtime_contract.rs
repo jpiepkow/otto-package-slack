@@ -10,6 +10,7 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 const PACKAGE_ID: &str = "com.otto.slack";
 const SETUP_READY: &str = "setup.default.slack.ready";
+const RUN_ID: &str = "00000000-0000-0000-0000-000000000065";
 const GRANT_ID: &str = "00000000-0000-0000-0000-000000000071";
 const TOOL_READ_THREAD: &str = "tool.default.slack.read_thread";
 const TOOL_LIST_USERS: &str = "tool.default.slack.list_users";
@@ -101,6 +102,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         METHOD_TOOLS_INVOKE,
         Some(json!({
             "tool_id": TOOL_READ_THREAD,
+            "run_id": RUN_ID,
             "grant_id": GRANT_ID,
             "mode": "read",
             "package_scope": {
@@ -118,14 +120,21 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         })),
     )
     .await?;
-    assert_eq!(read_thread["result"]["status"], "ok");
-    assert_eq!(read_thread["result"]["output"]["tool"], "read_thread");
+    assert_eq!(read_thread["result"]["is_error"], false);
     assert_eq!(
-        read_thread["result"]["output"]["thread"]["thread_ref"],
+        read_thread["result"]["content"][0]["text"],
+        "Read 2 synthetic Slack thread messages from fake runtime."
+    );
+    assert_eq!(
+        read_thread["result"]["structured_content"]["tool"],
+        "read_thread"
+    );
+    assert_eq!(
+        read_thread["result"]["structured_content"]["thread"]["thread_ref"],
         "thread.1710000000.000100"
     );
     assert_eq!(
-        read_thread["result"]["output"]["messages"]
+        read_thread["result"]["structured_content"]["messages"]
             .as_array()
             .map(Vec::len),
         Some(2)
@@ -138,6 +147,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         METHOD_TOOLS_INVOKE,
         Some(json!({
             "tool_id": TOOL_LIST_USERS,
+            "run_id": RUN_ID,
             "grant_id": GRANT_ID,
             "mode": "read",
             "package_scope": {
@@ -153,7 +163,11 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         })),
     )
     .await?;
-    assert_eq!(list_users["result"]["status"], "ok");
+    assert_eq!(list_users["result"]["is_error"], false);
+    assert_eq!(
+        list_users["result"]["content"][0]["text"],
+        "Read 2 synthetic Slack thread messages from fake runtime."
+    );
 
     let search_messages = request(
         &mut process.stdin,
@@ -162,6 +176,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         METHOD_TOOLS_INVOKE,
         Some(json!({
             "tool_id": TOOL_SEARCH_MESSAGES,
+            "run_id": RUN_ID,
             "grant_id": GRANT_ID,
             "mode": "search",
             "package_scope": {
@@ -174,16 +189,23 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         })),
     )
     .await?;
-    assert_eq!(search_messages["result"]["status"], "ok");
+    assert_eq!(search_messages["result"]["is_error"], false);
     assert_eq!(
-        search_messages["result"]["output"]["tool"],
+        search_messages["result"]["content"][0]["text"],
+        "Found 2 synthetic Slack search matches from fake runtime."
+    );
+    assert_eq!(
+        search_messages["result"]["structured_content"]["tool"],
         "search_messages"
     );
     assert_eq!(
-        search_messages["result"]["output"]["query"],
+        search_messages["result"]["structured_content"]["query"],
         "targeting alert"
     );
-    assert_eq!(search_messages["result"]["output"]["match_count"], 2);
+    assert_eq!(
+        search_messages["result"]["structured_content"]["match_count"],
+        2
+    );
 
     // search_messages now requires scope mode "search"; a mismatched "read"
     // scope must be rejected with slack_tool_mode_mismatch.
@@ -194,6 +216,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         METHOD_TOOLS_INVOKE,
         Some(json!({
             "tool_id": TOOL_SEARCH_MESSAGES,
+            "run_id": RUN_ID,
             "grant_id": GRANT_ID,
             "mode": "read",
             "package_scope": {
@@ -218,6 +241,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         METHOD_TOOLS_INVOKE,
         Some(json!({
             "tool_id": TOOL_ADD_REACTION,
+            "run_id": RUN_ID,
             "grant_id": GRANT_ID,
             "mode": "send",
             "package_scope": {
@@ -232,10 +256,20 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         })),
     )
     .await?;
-    assert_eq!(add_reaction["result"]["status"], "ok");
-    assert_eq!(add_reaction["result"]["output"]["tool"], "add_reaction");
-    assert_eq!(add_reaction["result"]["output"]["ok"], true);
-    assert_eq!(add_reaction["result"]["output"]["name"], "white_check_mark");
+    assert_eq!(add_reaction["result"]["is_error"], false);
+    assert_eq!(
+        add_reaction["result"]["content"][0]["text"],
+        "Added synthetic Slack reaction from fake runtime."
+    );
+    assert_eq!(
+        add_reaction["result"]["structured_content"]["tool"],
+        "add_reaction"
+    );
+    assert_eq!(add_reaction["result"]["structured_content"]["ok"], true);
+    assert_eq!(
+        add_reaction["result"]["structured_content"]["name"],
+        "white_check_mark"
+    );
 
     let send_message = request(
         &mut process.stdin,
@@ -244,6 +278,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         METHOD_TOOLS_INVOKE,
         Some(json!({
             "tool_id": TOOL_SEND_MESSAGE,
+            "run_id": RUN_ID,
             "grant_id": GRANT_ID,
             "mode": "send",
             "package_scope": {
@@ -260,10 +295,20 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         })),
     )
     .await?;
-    assert_eq!(send_message["result"]["status"], "blocked");
-    assert_eq!(send_message["result"]["output"]["tool"], "send_message");
-    assert_eq!(send_message["result"]["output"]["blocked"], true);
-    assert_eq!(send_message["result"]["output"]["sent"], false);
+    assert_eq!(send_message["result"]["is_error"], false);
+    assert_eq!(
+        send_message["result"]["content"][0]["text"],
+        "Slack send_message is blocked by the Phase 6 fake runtime; no send attempted."
+    );
+    assert_eq!(
+        send_message["result"]["structured_content"]["tool"],
+        "send_message"
+    );
+    assert_eq!(
+        send_message["result"]["structured_content"]["blocked"],
+        true
+    );
+    assert_eq!(send_message["result"]["structured_content"]["sent"], false);
 
     let mode_mismatch = request(
         &mut process.stdin,
@@ -272,6 +317,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         METHOD_TOOLS_INVOKE,
         Some(json!({
             "tool_id": TOOL_SEND_MESSAGE,
+            "run_id": RUN_ID,
             "grant_id": GRANT_ID,
             "mode": "read",
             "package_scope": {

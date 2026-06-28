@@ -1,15 +1,13 @@
 use futures_util::{SinkExt, StreamExt};
 use otto_extension_sdk::protocol::{
-    HandshakeParams, HandshakeResult, HealthResult, METHOD_HANDSHAKE, METHOD_HEALTH,
+    ContentBlock, HandshakeParams, HandshakeResult, HealthResult, METHOD_HANDSHAKE, METHOD_HEALTH,
     METHOD_REGISTRATIONS_GET, METHOD_SETUP_CALL, METHOD_SETUP_CHECKS_RUN,
-    METHOD_SETUP_FORM_CONFIGURATION, METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE,
-    METHOD_TRIGGER_FORM_CONFIGURATION, METHOD_TRIGGERS_EVENT, METHOD_TRIGGERS_SUBSCRIBE,
-    METHOD_TRIGGERS_UNSUBSCRIBE, RegistrationsResult, SetupCallParams, SetupCallResult,
-    SetupCallSpec, SetupCheckRunParams, SetupCheckRunResult, SetupFormConfigurationParams,
-    SetupFormConfigurationResult, ShutdownResult, ToolInvokeParams, ToolInvokeResult,
-    TriggerEventEnvelope, TriggerEventNotification, TriggerFormConfigurationParams,
-    TriggerFormConfigurationResult, TriggerSubscribeParams, TriggerSubscribeResult,
-    TriggerUnsubscribeParams, TriggerUnsubscribeResult,
+    METHOD_SETUP_FORM_CONFIGURATION, METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE, METHOD_TRIGGERS_EVENT,
+    METHOD_TRIGGERS_SUBSCRIBE, METHOD_TRIGGERS_UNSUBSCRIBE, RegistrationsResult, SetupCallParams,
+    SetupCallResult, SetupCallSpec, SetupCheckRunParams, SetupCheckRunResult,
+    SetupFormConfigurationParams, SetupFormConfigurationResult, ShutdownResult, ToolInvokeParams,
+    ToolInvokeResult, TriggerEventEnvelope, TriggerEventNotification, TriggerSubscribeParams,
+    TriggerSubscribeResult, TriggerUnsubscribeParams, TriggerUnsubscribeResult,
 };
 use otto_extension_sdk::rpc::framing::{read_rpc_frame, write_rpc_frame};
 use otto_tool_slack::{
@@ -58,6 +56,37 @@ struct Runtime {
 
 type SharedStdout = Arc<Mutex<tokio::io::Stdout>>;
 type RuntimeResult<T> = Result<T, RuntimeError>;
+
+fn ok_result(text: &str, structured: Value) -> ToolInvokeResult {
+    ToolInvokeResult {
+        content: vec![ContentBlock::Text {
+            text: text.to_owned(),
+            annotations: None,
+            _meta: None,
+        }],
+        structured_content: Some(structured),
+        output_schema: None,
+        is_error: false,
+        idempotency_key: None,
+        _meta: None,
+    }
+}
+
+#[allow(dead_code)]
+fn error_result(text: &str) -> ToolInvokeResult {
+    ToolInvokeResult {
+        content: vec![ContentBlock::Text {
+            text: text.to_owned(),
+            annotations: None,
+            _meta: None,
+        }],
+        structured_content: None,
+        output_schema: None,
+        is_error: true,
+        idempotency_key: None,
+        _meta: None,
+    }
+}
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
@@ -115,7 +144,6 @@ impl Runtime {
             })),
             METHOD_SETUP_CHECKS_RUN => self.setup_check(request.params).await,
             METHOD_SETUP_FORM_CONFIGURATION => self.setup_form_configuration(request.params),
-            METHOD_TRIGGER_FORM_CONFIGURATION => self.trigger_form_configuration(request.params),
             METHOD_SETUP_CALL => self.setup_call(request.params).await,
             METHOD_REGISTRATIONS_GET => Ok(json!(RegistrationsResult {
                 registrations: registrations(),
@@ -361,46 +389,6 @@ impl Runtime {
                     blocks_continue: false,
                 },
             ],
-        }))
-    }
-
-    fn trigger_form_configuration(&self, params: Option<Value>) -> RuntimeResult<Value> {
-        let params = decode_params::<TriggerFormConfigurationParams>(params)?;
-        if params.trigger_id != TRIGGER_MESSAGE {
-            return Ok(json!(TriggerFormConfigurationResult {
-                form: json!({}),
-                calls: vec![],
-            }));
-        }
-        let form = json!({
-            "form_id": "slack_trigger_message",
-            "title": "Slack message trigger",
-            "description": "This trigger fires only for messages in the channels selected below. It fails closed: with no channels selected it matches nothing — never a workspace-wide firehose.",
-            "fields": [
-                {
-                    "name": "trigger_channel_ids",
-                    "label": "Trigger channels",
-                    "kind": "string_list",
-                    "required": true,
-                    "min_items": 1,
-                    "options_call": "list_channels",
-                    "description": "Slack channels this trigger listens to. Required: the trigger fails closed and matches nothing without at least one channel."
-                }
-            ]
-        });
-        Ok(json!(TriggerFormConfigurationResult {
-            form,
-            calls: vec![SetupCallSpec {
-                id: "list_channels".to_owned(),
-                kind: "options".to_owned(),
-                display_name: "List Slack channels".to_owned(),
-                description: Some(
-                    "Returns Slack channels visible to the validated token.".to_owned()
-                ),
-                input_schema: None,
-                output_schema: None,
-                blocks_continue: false,
-            }],
         }))
     }
 
@@ -715,37 +703,13 @@ impl Runtime {
                             .await
                             .map_err(|error| RuntimeError::owned(format!("slack_socket_ack_failed: {error}")))?;
                     }
-                    let envelope_type = envelope
-                        .get("type")
-                        .and_then(Value::as_str)
-                        .unwrap_or("unknown");
-                    let event_type = envelope
-                        .pointer("/payload/event/type")
-                        .and_then(Value::as_str)
-                        .unwrap_or("-");
-                    let event_channel = envelope
-                        .pointer("/payload/event/channel")
-                        .and_then(Value::as_str)
-                        .unwrap_or("-");
                     if let Some(notification) = slack_notification_from_envelope(
                         &params,
                         &config,
                         &subscription_id,
                         &envelope,
                     ) {
-                        eprintln!(
-                            "slack socket envelope matched: type={envelope_type} event={event_type} channel={event_channel}"
-                        );
                         write_trigger_notification(&self.stdout, &notification).await?;
-                    } else {
-                        let app_id = envelope
-                            .pointer("/connection_info/app_id")
-                            .and_then(Value::as_str)
-                            .unwrap_or("-");
-                        eprintln!(
-                            "slack socket envelope dropped: type={envelope_type} event={event_type} channel={event_channel} app_id={app_id} targets={:?}",
-                            config.trigger_channel_ids
-                        );
                     }
                 }
             }
@@ -804,10 +768,10 @@ impl Runtime {
             )
             .await?;
         let messages = bounded_messages(&response, config.max_message_chars);
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!("Read {} Slack thread messages.", messages.len()),
-            output: json!({
+        let summary = format!("Read {} Slack thread messages.", messages.len());
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "channel_ref": channel_ref(&channel),
                 "thread_ref": thread_ref(&thread_ts),
@@ -815,7 +779,7 @@ impl Runtime {
                 "truncated": false,
                 "redactions_applied": ["message_content"]
             }),
-        })
+        ))
     }
 
     async fn read_channel(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
@@ -843,17 +807,17 @@ impl Runtime {
             )
             .await?;
         let messages = bounded_messages(&response, config.max_message_chars);
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!("Read {} recent Slack channel messages.", messages.len()),
-            output: json!({
+        let summary = format!("Read {} recent Slack channel messages.", messages.len());
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "channel_ref": channel_ref(&channel),
                 "messages": messages,
                 "truncated": false,
                 "redactions_applied": ["message_content"]
             }),
-        })
+        ))
     }
 
     async fn read_configured_channels(
@@ -902,19 +866,19 @@ impl Runtime {
             }));
         }
 
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!(
-                "Read {message_count} recent Slack channel messages across {} channels.",
-                channel_reads.len()
-            ),
-            output: json!({
+        let summary = format!(
+            "Read {message_count} recent Slack channel messages across {} channels.",
+            channel_reads.len()
+        );
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "channels": channel_reads,
                 "truncated": false,
                 "redactions_applied": ["message_content"]
             }),
-        })
+        ))
     }
 
     async fn read_recent_dms(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
@@ -942,17 +906,17 @@ impl Runtime {
             )
             .await?;
         let messages = bounded_messages(&response, config.max_message_chars);
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!("Read {} recent Slack DM messages.", messages.len()),
-            output: json!({
+        let summary = format!("Read {} recent Slack DM messages.", messages.len());
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "channel_ref": channel_ref(&channel),
                 "messages": messages,
                 "truncated": false,
                 "redactions_applied": ["message_content"]
             }),
-        })
+        ))
     }
 
     async fn read_recent_dm_overview(
@@ -1007,19 +971,19 @@ impl Runtime {
                 "messages": messages
             }));
         }
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!(
-                "Read {message_count} recent Slack DM messages across {} conversations.",
-                conversations.len()
-            ),
-            output: json!({
+        let summary = format!(
+            "Read {message_count} recent Slack DM messages across {} conversations.",
+            conversations.len()
+        );
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "dm_conversations": conversations,
                 "truncated": false,
                 "redactions_applied": ["message_content"]
             }),
-        })
+        ))
     }
 
     async fn list_readable_channel_ids(
@@ -1080,15 +1044,15 @@ impl Runtime {
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!("Listed {} Slack conversations.", channels.len()),
-            output: json!({
+        let summary = format!("Listed {} Slack conversations.", channels.len());
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "conversations": channels,
                 "truncated": false
             }),
-        })
+        ))
     }
 
     async fn list_users(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
@@ -1147,16 +1111,16 @@ impl Runtime {
             }
         }
 
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!("Listed {} Slack users.", users.len()),
-            output: json!({
+        let summary = format!("Listed {} Slack users.", users.len());
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "users": users,
                 "query": query,
                 "truncated": truncated
             }),
-        })
+        ))
     }
 
     async fn open_dm_tool(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
@@ -1166,16 +1130,15 @@ impl Runtime {
             .ok_or_else(|| RuntimeError::new("slack_user_required"))?;
         let user = self.resolve_user_arg(&config, &user).await?;
         let channel = self.open_dm(&config.identity_token, &user).await?;
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: "Opened Slack DM channel.".to_owned(),
-            output: json!({
+        Ok(ok_result(
+            "Opened Slack DM channel.",
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "channel_id": channel,
                 "channel_ref": channel_ref(&channel),
                 "user_id": user
             }),
-        })
+        ))
     }
 
     async fn send_message(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
@@ -1229,17 +1192,16 @@ impl Runtime {
         let response = self
             .slack_api(&config.identity_token, "chat.postMessage", &form)
             .await?;
-        Ok(ToolInvokeResult {
-            status: "sent".to_owned(),
-            summary: "Sent Slack message through approved send grant.".to_owned(),
-            output: json!({
+        Ok(ok_result(
+            "Sent Slack message through approved send grant.",
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "channel_ref": channel_ref(&channel),
                 "message_ref": message_ref(response.get("ts").and_then(Value::as_str).unwrap_or("sent")),
                 "sent": true,
                 "slack": response
             }),
-        })
+        ))
     }
 
     async fn search_messages(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
@@ -1259,10 +1221,10 @@ impl Runtime {
             )
             .await?;
         let matches = bounded_search_matches(&response, config.max_message_chars);
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!("Found {} Slack search matches.", matches.len()),
-            output: json!({
+        let summary = format!("Found {} Slack search matches.", matches.len());
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "query": query,
                 "matches": matches,
@@ -1270,7 +1232,7 @@ impl Runtime {
                 "truncated": false,
                 "redactions_applied": ["message_content"]
             }),
-        })
+        ))
     }
 
     async fn add_reaction(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
@@ -1307,10 +1269,10 @@ impl Runtime {
                 ],
             )
             .await?;
-        Ok(ToolInvokeResult {
-            status: "ok".to_owned(),
-            summary: format!("Added Slack reaction :{name}:."),
-            output: json!({
+        let summary = format!("Added Slack reaction :{name}:.");
+        Ok(ok_result(
+            &summary,
+            json!({
                 "workspace_ref": config.workspace_ref,
                 "channel_ref": channel_ref(&channel),
                 "timestamp": timestamp,
@@ -1318,7 +1280,7 @@ impl Runtime {
                 "ok": true,
                 "slack": response
             }),
-        })
+        ))
     }
 
     async fn open_dm(&self, token: &str, user: &str) -> RuntimeResult<String> {
@@ -2707,80 +2669,5 @@ mod tests {
             search_requires_user_token("xoxp-abc").is_ok(),
             "a valid xoxp- user token must not be rejected"
         );
-    }
-
-    fn test_runtime() -> Runtime {
-        Runtime {
-            client: reqwest::Client::new(),
-            fake_mode: true,
-            subscriptions: Arc::new(Mutex::new(HashMap::new())),
-            stdout: Arc::new(Mutex::new(tokio::io::stdout())),
-        }
-    }
-
-    fn trigger_form_params(trigger_id: &str) -> Option<Value> {
-        Some(json!({
-            "connection": {
-                "package_id": PACKAGE_ID,
-                "connection_id": "conn-slack-test",
-                "name": "Test Slack",
-                "alias_prefix": "test_slack",
-                "account_hint": null
-            },
-            "config": {},
-            "secrets": {},
-            "trigger_id": trigger_id
-        }))
-    }
-
-    #[test]
-    fn trigger_form_for_message_trigger_requires_channel_picker() {
-        let runtime = test_runtime();
-        let result = runtime
-            .trigger_form_configuration(trigger_form_params(TRIGGER_MESSAGE))
-            .expect("message trigger form is returned");
-        let result: TriggerFormConfigurationResult =
-            serde_json::from_value(result).expect("result decodes");
-
-        let fields = result
-            .form
-            .get("fields")
-            .and_then(Value::as_array)
-            .expect("form declares fields");
-        let channel_field = fields
-            .iter()
-            .find(|field| field.get("name").and_then(Value::as_str) == Some("trigger_channel_ids"))
-            .expect("trigger_channel_ids field exists");
-        assert_eq!(
-            channel_field.get("required").and_then(Value::as_bool),
-            Some(true),
-            "trigger_channel_ids must be required"
-        );
-        assert_eq!(
-            channel_field.get("kind").and_then(Value::as_str),
-            Some("string_list"),
-            "trigger_channel_ids must be a string_list"
-        );
-        assert_eq!(
-            channel_field.get("options_call").and_then(Value::as_str),
-            Some("list_channels"),
-            "trigger_channel_ids must load options from list_channels"
-        );
-        assert!(
-            result.calls.iter().any(|call| call.id == "list_channels"),
-            "calls must include list_channels"
-        );
-    }
-
-    #[test]
-    fn trigger_form_for_unknown_trigger_is_empty_not_error() {
-        let runtime = test_runtime();
-        let result = runtime
-            .trigger_form_configuration(trigger_form_params("trigger.default.slack.unknown"))
-            .expect("unknown trigger id yields an Ok empty form");
-        let result: TriggerFormConfigurationResult =
-            serde_json::from_value(result).expect("result decodes");
-        assert_eq!(result.form, json!({}), "form must be an empty object");
-        assert!(result.calls.is_empty(), "calls must be empty");
     }
 }

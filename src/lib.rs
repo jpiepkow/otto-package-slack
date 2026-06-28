@@ -4,7 +4,7 @@ use otto_extension_sdk::extension_ids::{
     CapabilityId, RedactionId, RoleId, SchemaId, SetupCheckId, ToolId, TriggerId, UiFormId,
 };
 use otto_extension_sdk::grants::CapabilityMode;
-use otto_extension_sdk::protocol::{ToolInvokeParams, ToolInvokeResult};
+use otto_extension_sdk::protocol::{ContentBlock, ToolInvokeParams, ToolInvokeResult};
 use otto_extension_sdk::roles::{
     CapabilityDeclaration, ExtensionRegistrations, ExtensionRoleKind, RedactionContributor,
     RoleRegistration, SchemaRegistration, SetupCheckRegistration, ToolRegistration,
@@ -129,6 +129,37 @@ pub fn invoke_fake_tool(params: &ToolInvokeParams) -> Result<ToolInvokeResult, T
     }
 }
 
+fn ok_result(text: &str, structured: Value) -> ToolInvokeResult {
+    ToolInvokeResult {
+        content: vec![ContentBlock::Text {
+            text: text.to_owned(),
+            annotations: None,
+            _meta: None,
+        }],
+        structured_content: Some(structured),
+        output_schema: None,
+        is_error: false,
+        idempotency_key: None,
+        _meta: None,
+    }
+}
+
+#[allow(dead_code)]
+fn error_result(text: &str) -> ToolInvokeResult {
+    ToolInvokeResult {
+        content: vec![ContentBlock::Text {
+            text: text.to_owned(),
+            annotations: None,
+            _meta: None,
+        }],
+        structured_content: None,
+        output_schema: None,
+        is_error: true,
+        idempotency_key: None,
+        _meta: None,
+    }
+}
+
 /// Returns runtime registrations that match `extensions/default-tool-slack/otto.toml`.
 #[must_use]
 pub fn registrations() -> ExtensionRegistrations {
@@ -153,6 +184,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_read.clone()],
                 requires_approval: Some(false),
+                read_only: true,
+                destructive: false,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(false)),
             },
@@ -164,6 +199,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_read.clone()],
                 requires_approval: Some(false),
+                read_only: true,
+                destructive: false,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(false)),
             },
@@ -175,6 +214,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_read.clone()],
                 requires_approval: Some(false),
+                read_only: true,
+                destructive: false,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(false)),
             },
@@ -186,6 +229,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_read.clone()],
                 requires_approval: Some(false),
+                read_only: true,
+                destructive: false,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(false)),
             },
@@ -197,6 +244,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_read.clone()],
                 requires_approval: Some(false),
+                read_only: true,
+                destructive: false,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(false)),
             },
@@ -208,6 +259,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_read.clone()],
                 requires_approval: Some(false),
+                read_only: true,
+                destructive: false,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(false)),
             },
@@ -219,6 +274,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_read.clone()],
                 requires_approval: Some(false),
+                read_only: true,
+                destructive: false,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(false)),
             },
@@ -230,6 +289,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_send.clone()],
                 requires_approval: Some(true),
+                read_only: false,
+                destructive: true,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(true)),
             },
@@ -241,6 +304,10 @@ pub fn registrations() -> ExtensionRegistrations {
                 output_schema: None,
                 required_capabilities: vec![cap_send.clone()],
                 requires_approval: Some(true),
+                read_only: false,
+                destructive: true,
+                idempotent: false,
+                open_world: true,
                 runtime_commands: slack_runtime_commands(),
                 scope_defaults: Some(slack_scope_defaults(true)),
             },
@@ -328,10 +395,9 @@ fn invoke_read_thread(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvoke
         80,
     );
 
-    Ok(ToolInvokeResult {
-        status: "ok".to_owned(),
-        summary: "Read 2 synthetic Slack thread messages from fake runtime.".to_owned(),
-        output: json!({
+    Ok(ok_result(
+        "Read 2 synthetic Slack thread messages from fake runtime.",
+        json!({
             "tool": "read_thread",
             "workspace_ref": "workspace.fake",
             "channel_ref": channel_ref,
@@ -356,17 +422,15 @@ fn invoke_read_thread(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvoke
             ],
             "truncated": false
         }),
-    })
+    ))
 }
 
 fn invoke_send_message(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvokeResult> {
     ensure_mode(params, CapabilityMode::Send)?;
 
-    Ok(ToolInvokeResult {
-        status: "blocked".to_owned(),
-        summary: "Slack send_message is blocked by the Phase 6 fake runtime; no send attempted."
-            .to_owned(),
-        output: json!({
+    Ok(ok_result(
+        "Slack send_message is blocked by the Phase 6 fake runtime; no send attempted.",
+        json!({
             "tool": "send_message",
             "blocked": true,
             "sent": false,
@@ -374,17 +438,16 @@ fn invoke_send_message(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvok
             "workspace_ref": "workspace.fake",
             "channel_ref": "channel.prod-targeting-alerts"
         }),
-    })
+    ))
 }
 
 fn invoke_search_messages(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvokeResult> {
     ensure_mode(params, CapabilityMode::Search)?;
     let query = bounded_arg(&params.arguments, "query", "targeting alert", 80);
 
-    Ok(ToolInvokeResult {
-        status: "ok".to_owned(),
-        summary: "Found 2 synthetic Slack search matches from fake runtime.".to_owned(),
-        output: json!({
+    Ok(ok_result(
+        "Found 2 synthetic Slack search matches from fake runtime.",
+        json!({
             "tool": "search_messages",
             "workspace_ref": "workspace.fake",
             "query": query,
@@ -407,7 +470,7 @@ fn invoke_search_messages(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolIn
             "match_count": 2,
             "truncated": false
         }),
-    })
+    ))
 }
 
 fn invoke_add_reaction(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvokeResult> {
@@ -416,10 +479,9 @@ fn invoke_add_reaction(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvok
     let timestamp = bounded_arg(&params.arguments, "timestamp", "1710000000.000100", 64);
     let name = bounded_arg(&params.arguments, "name", "white_check_mark", 64);
 
-    Ok(ToolInvokeResult {
-        status: "ok".to_owned(),
-        summary: "Added synthetic Slack reaction from fake runtime.".to_owned(),
-        output: json!({
+    Ok(ok_result(
+        "Added synthetic Slack reaction from fake runtime.",
+        json!({
             "tool": "add_reaction",
             "ok": true,
             "workspace_ref": "workspace.fake",
@@ -427,7 +489,7 @@ fn invoke_add_reaction(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvok
             "timestamp": timestamp,
             "name": name
         }),
-    })
+    ))
 }
 
 fn channel_fake_ref(channel: &str) -> String {
