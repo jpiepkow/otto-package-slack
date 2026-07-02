@@ -1621,6 +1621,11 @@ fn slack_notification_from_envelope(
     if event.get("type").and_then(Value::as_str)? != "message" {
         return None;
     }
+    if event.get("subtype").and_then(Value::as_str).is_some()
+        || event.get("bot_id").and_then(Value::as_str).is_some()
+    {
+        return None;
+    }
     let channel = event.get("channel").and_then(Value::as_str)?;
     // Per-trigger channel targeting (SC-3): fail closed when no target is set
     // (empty list -> match nothing; never a workspace firehose) and drop any
@@ -2581,6 +2586,37 @@ mod tests {
         assert!(
             slack_notification_from_envelope(&params, &config, "sub-1", &non_message).is_none()
         );
+
+        // Bot/subtype messages, including Otto's own sends, must not retrigger
+        // the job and create a feedback loop.
+        for event in [
+            json!({
+                "type": "message",
+                "subtype": "bot_message",
+                "channel": "C123",
+                "bot_id": "B123",
+                "ts": "1710000000.000102",
+                "text": "bot reply"
+            }),
+            json!({
+                "type": "message",
+                "subtype": "message_changed",
+                "channel": "C123",
+                "user": "U123",
+                "ts": "1710000000.000103",
+                "text": "edited"
+            }),
+        ] {
+            let envelope = json!({
+                "payload": {
+                    "team_id": "T123",
+                    "event": event
+                }
+            });
+            assert!(
+                slack_notification_from_envelope(&params, &config, "sub-1", &envelope).is_none()
+            );
+        }
     }
 
     #[test]
