@@ -178,9 +178,9 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
             "tool_id": TOOL_SEARCH_MESSAGES,
             "run_id": RUN_ID,
             "grant_id": GRANT_ID,
-            "mode": "search",
+            "mode": "read",
             "package_scope": {
-                "mode": "search",
+                "mode": "read",
                 "workspace_ref": "workspace.fake"
             },
             "arguments": {
@@ -207,7 +207,7 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
         2
     );
 
-    // search_messages now requires scope mode "search"; a mismatched "read"
+    // search_messages is a read-only tool; a mismatched send scope
     // scope must be rejected with slack_tool_mode_mismatch.
     let search_mode_mismatch = request(
         &mut process.stdin,
@@ -218,9 +218,9 @@ async fn assert_fake_tool_invocations(process: &mut SlackProcess) -> anyhow::Res
             "tool_id": TOOL_SEARCH_MESSAGES,
             "run_id": RUN_ID,
             "grant_id": GRANT_ID,
-            "mode": "read",
+            "mode": "send",
             "package_scope": {
-                "mode": "read",
+                "mode": "send",
                 "workspace_ref": "workspace.fake"
             },
             "arguments": {

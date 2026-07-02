@@ -1205,7 +1205,7 @@ impl Runtime {
     }
 
     async fn search_messages(&self, params: &ToolInvokeParams) -> RuntimeResult<ToolInvokeResult> {
-        ensure_mode(params, "search")?;
+        ensure_mode(params, "read")?;
         let config = SlackConnectionConfig::from_scope(&params.package_scope)?;
         search_requires_user_token(&config.identity_token)?;
         let query = string_arg(&params.arguments, &["query"], None)

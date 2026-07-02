@@ -442,7 +442,7 @@ fn invoke_send_message(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvok
 }
 
 fn invoke_search_messages(params: &ToolInvokeParams) -> ToolRuntimeResult<ToolInvokeResult> {
-    ensure_mode(params, CapabilityMode::Search)?;
+    ensure_mode(params, CapabilityMode::Read)?;
     let query = bounded_arg(&params.arguments, "query", "targeting alert", 80);
 
     Ok(ok_result(
