@@ -2,12 +2,14 @@ use futures_util::{SinkExt, StreamExt};
 use otto_extension_sdk::protocol::{
     ContentBlock, HandshakeParams, HandshakeResult, HealthResult, METHOD_HANDSHAKE, METHOD_HEALTH,
     METHOD_REGISTRATIONS_GET, METHOD_SETUP_CALL, METHOD_SETUP_CHECKS_RUN,
-    METHOD_SETUP_FORM_CONFIGURATION, METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE, METHOD_TRIGGERS_EVENT,
-    METHOD_TRIGGERS_SUBSCRIBE, METHOD_TRIGGERS_UNSUBSCRIBE, RegistrationsResult, SetupCallParams,
-    SetupCallResult, SetupCallSpec, SetupCheckRunParams, SetupCheckRunResult,
-    SetupFormConfigurationParams, SetupFormConfigurationResult, ShutdownResult, ToolInvokeParams,
-    ToolInvokeResult, TriggerEventEnvelope, TriggerEventNotification, TriggerSubscribeParams,
-    TriggerSubscribeResult, TriggerUnsubscribeParams, TriggerUnsubscribeResult,
+    METHOD_SETUP_FORM_CONFIGURATION, METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE,
+    METHOD_TRIGGER_FORM_CONFIGURATION, METHOD_TRIGGERS_EVENT, METHOD_TRIGGERS_SUBSCRIBE,
+    METHOD_TRIGGERS_UNSUBSCRIBE, RegistrationsResult, SetupCallParams, SetupCallResult,
+    SetupCallSpec, SetupCheckRunParams, SetupCheckRunResult, SetupFormConfigurationParams,
+    SetupFormConfigurationResult, ShutdownResult, ToolInvokeParams, ToolInvokeResult,
+    TriggerEventEnvelope, TriggerEventNotification, TriggerFormConfigurationParams,
+    TriggerFormConfigurationResult, TriggerSubscribeParams, TriggerSubscribeResult,
+    TriggerUnsubscribeParams, TriggerUnsubscribeResult,
 };
 use otto_extension_sdk::rpc::framing::{read_rpc_frame, write_rpc_frame};
 use otto_tool_slack::{
@@ -149,6 +151,7 @@ impl Runtime {
                 registrations: registrations(),
             })),
             METHOD_TOOLS_INVOKE => self.invoke_tool(request.params).await,
+            METHOD_TRIGGER_FORM_CONFIGURATION => self.trigger_form_configuration(request.params),
             METHOD_TRIGGERS_SUBSCRIBE => self.subscribe(request.params).await,
             METHOD_TRIGGERS_UNSUBSCRIBE => self.unsubscribe(request.params).await,
             METHOD_SHUTDOWN => Ok(json!(ShutdownResult { accepted: true })),
@@ -389,6 +392,47 @@ impl Runtime {
                     blocks_continue: false,
                 },
             ],
+        }))
+    }
+
+    fn trigger_form_configuration(&self, params: Option<Value>) -> RuntimeResult<Value> {
+        let params = decode_params::<TriggerFormConfigurationParams>(params)?;
+        if params.trigger_id.as_str() != TRIGGER_MESSAGE {
+            return Ok(json!(TriggerFormConfigurationResult {
+                form: json!({}),
+                calls: Vec::new(),
+            }));
+        }
+
+        let form = json!({
+            "form_id": "slack_message_trigger",
+            "title": "Slack message trigger",
+            "description": "Choose the Slack channels this job should listen to. Otto stores channel IDs in trigger scope; message events outside this list are ignored.",
+            "fields": [
+                {
+                    "name": "trigger_channel_ids",
+                    "label": "Trigger channels",
+                    "kind": "string_list",
+                    "required": true,
+                    "options_call": "list_channels",
+                    "description": "One Slack channel ID per line. Use Load options to pick visible channels such as #otto-slack-e2e."
+                }
+            ]
+        });
+
+        Ok(json!(TriggerFormConfigurationResult {
+            form,
+            calls: vec![SetupCallSpec {
+                id: "list_channels".to_owned(),
+                kind: "options".to_owned(),
+                display_name: "List Slack channels".to_owned(),
+                description: Some(
+                    "Returns Slack channels visible to the validated token.".to_owned()
+                ),
+                input_schema: None,
+                output_schema: None,
+                blocks_continue: false,
+            }],
         }))
     }
 

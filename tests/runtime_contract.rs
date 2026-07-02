@@ -1,6 +1,6 @@
 use otto_extension_sdk::protocol::{
     METHOD_HANDSHAKE, METHOD_HEALTH, METHOD_REGISTRATIONS_GET, METHOD_SETUP_CHECKS_RUN,
-    METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE,
+    METHOD_SHUTDOWN, METHOD_TOOLS_INVOKE, METHOD_TRIGGER_FORM_CONFIGURATION,
 };
 use otto_extension_sdk::rpc::framing::{read_rpc_frame, write_rpc_frame};
 use serde_json::{Value, json};
@@ -89,6 +89,34 @@ async fn assert_runtime_ready(process: &mut SlackProcess) -> anyhow::Result<()> 
     )
     .await?;
     assert_manifest_registration_ceiling(&registrations["result"]["registrations"]);
+
+    let trigger_form = request(
+        &mut process.stdin,
+        &mut process.stdout,
+        5,
+        METHOD_TRIGGER_FORM_CONFIGURATION,
+        Some(json!({
+            "connection": {
+                "package_id": PACKAGE_ID,
+                "connection_id": null,
+                "name": "e2e_bot",
+                "alias_prefix": "e2e_bot",
+                "account_hint": null
+            },
+            "config": {},
+            "trigger_id": "trigger.default.slack.message"
+        })),
+    )
+    .await?;
+    assert_eq!(
+        trigger_form["result"]["form"]["fields"][0]["name"],
+        "trigger_channel_ids"
+    );
+    assert_eq!(
+        trigger_form["result"]["form"]["fields"][0]["options_call"],
+        "list_channels"
+    );
+    assert_eq!(trigger_form["result"]["calls"][0]["id"], "list_channels");
 
     Ok(())
 }
