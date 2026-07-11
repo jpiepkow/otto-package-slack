@@ -1,0 +1,81 @@
+{
+  "capabilities": [
+    "cap.default.slack.read",
+    "cap.default.slack.send",
+    "cap.default.slack.trigger"
+  ],
+  "contract_hash": "76370d2e59565ea1ea2135d8711f66fb2b35a472cd0ff8855129d2efd08ae351",
+  "contract_version": "otto.package.acceptance.v1",
+  "fixture_categories": {
+    "fake_capability_cases": [
+      "otto.toml",
+      "src/bin/otto-tool-slack.rs",
+      "src/lib.rs",
+      "tests/runtime_contract.rs"
+    ],
+    "manifest_schema": [
+      "otto.toml",
+      "Cargo.toml",
+      "tests/manifest_contract.rs"
+    ],
+    "negative_protocol_cases": [
+      "src/bin/otto-tool-slack.rs",
+      "src/lib.rs"
+    ],
+    "offline_boundary": [
+      "otto.toml",
+      "src/bin/otto-tool-slack.rs",
+      "src/lib.rs",
+      "tests/live_slack_smoke.rs"
+    ],
+    "redaction_or_secret_safety": [
+      "otto.toml",
+      "src/bin/otto-tool-slack.rs",
+      "src/lib.rs",
+      "tests/live_slack_smoke.rs"
+    ],
+    "runtime_negotiation": [
+      "otto.toml",
+      "src/bin/otto-tool-slack.rs",
+      "src/lib.rs",
+      "tests/live_slack_smoke.rs"
+    ],
+    "timeout_cancel_or_duplicate_cases": [
+      "otto.toml",
+      "src/bin/otto-tool-slack.rs",
+      "src/lib.rs",
+      "tests/live_slack_smoke.rs"
+    ]
+  },
+  "offline": {
+    "requires_host_mutation": false,
+    "requires_live_credentials": false,
+    "requires_live_network": false
+  },
+  "package_id": "com.otto.slack",
+  "provides": [
+    "channel",
+    "notification",
+    "tools",
+    "triggers"
+  ],
+  "runtime_command": "bin/otto-tool-slack",
+  "schema_version": 1,
+  "setup_check_cases": [
+    "setup.default.slack.ready"
+  ],
+  "tool_cases": [
+    "tool.default.slack.add_reaction",
+    "tool.default.slack.list_conversations",
+    "tool.default.slack.list_users",
+    "tool.default.slack.open_dm",
+    "tool.default.slack.read_channel",
+    "tool.default.slack.read_recent_dms",
+    "tool.default.slack.read_thread",
+    "tool.default.slack.search_messages",
+    "tool.default.slack.send_message"
+  ],
+  "trigger_cases": [
+    "trigger.default.slack.message"
+  ]
+}
