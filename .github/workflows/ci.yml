@@ -1,0 +1,42 @@
+name: Package CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, phase-80-security-contract]
+
+concurrency:
+  group: package-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package acceptance
+    runs-on: macos-26
+    steps:
+      # reviewed-release: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Assert macOS arm64 runner
+        run: |
+          test "$(uname -s)" = "Darwin"
+          test "$(uname -m)" = "arm64"
+      - name: Install pinned Rust toolchain
+        run: |
+          rust_toolchain="$(awk -F'"' '/channel/ { print $2; exit }' rust-toolchain.toml)"
+          rustup toolchain install "${rust_toolchain}" --profile minimal --component rustfmt --component clippy
+          rustup default "${rust_toolchain}"
+          rustup show active-toolchain
+      - name: MSRV check
+        run: |
+          msrv="$(awk -F'"' '/rust-version/ { print $2; exit }' Cargo.toml)"
+          rustup toolchain install "${msrv}" --profile minimal
+          cargo "+${msrv}" check --all-targets --all-features
+      - name: Package acceptance
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+          GIT_CONFIG_GLOBAL: /dev/null
+          GIT_TERMINAL_PROMPT: "0"
+        run: scripts/ci/package-acceptance.sh
