@@ -1064,7 +1064,7 @@ checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 [[package]]
 name = "otto-core"
 version = "0.1.0"
-source = "git+https://github.com/jpiepkow/otto.git?rev=a5bec683030f361cead311a269179fa3bc09bc63#a5bec683030f361cead311a269179fa3bc09bc63"
+source = "git+https://github.com/jpiepkow/otto.git?rev=19c1ac6b0866ad8b05208b2d6108640b22704a3d#19c1ac6b0866ad8b05208b2d6108640b22704a3d"
 dependencies = [
  "jsonschema",
  "schemars",
@@ -1080,7 +1080,7 @@ dependencies = [
 [[package]]
 name = "otto-extension-sdk"
 version = "0.1.0"
-source = "git+https://github.com/jpiepkow/otto.git?rev=a5bec683030f361cead311a269179fa3bc09bc63#a5bec683030f361cead311a269179fa3bc09bc63"
+source = "git+https://github.com/jpiepkow/otto.git?rev=19c1ac6b0866ad8b05208b2d6108640b22704a3d#19c1ac6b0866ad8b05208b2d6108640b22704a3d"
 dependencies = [
  "base64",
  "chrono",
