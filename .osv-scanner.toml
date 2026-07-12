@@ -1,0 +1,2 @@
+# Otto package OSV policy.
+# Reviewed vulnerability exceptions must be scoped to package lockfile contents.

@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "generated_on": "2026-07-12",
+  "runner": {
+    "required_os": "macOS",
+    "required_arch": "arm64",
+    "github_runner_label": "macos-26"
+  },
+  "tools": {
+    "cargo-deny": {
+      "version": "0.20.2",
+      "command": "cargo-deny",
+      "kind": "cargo_crate",
+      "provenance_url": "https://github.com/EmbarkStudios/cargo-deny/releases/tag/0.20.2",
+      "source": {
+        "url": "https://static.crates.io/crates/cargo-deny/cargo-deny-0.20.2.crate",
+        "sha256": "e528dfcbe739af7ce37a77d3d6df1b29dd6887b1c701d888820c0f16b864f737"
+      }
+    },
+    "cargo-public-api": {
+      "version": "0.51.0",
+      "command": "cargo-public-api",
+      "kind": "cargo_crate",
+      "provenance_url": "https://github.com/Enselic/cargo-public-api/releases/tag/cargo-public-api-v0.51.0",
+      "source": {
+        "url": "https://static.crates.io/crates/cargo-public-api/cargo-public-api-0.51.0.crate",
+        "sha256": "ab4b9933beb8f9b9296bb35e77059a0217fa360c8050a9e22e533f43e900dbb2"
+      }
+    },
+    "osv-scanner": {
+      "version": "2.4.0",
+      "command": "osv-scanner",
+      "kind": "direct_binary",
+      "provenance_url": "https://github.com/google/osv-scanner/releases/tag/v2.4.0",
+      "assets": {
+        "darwin_arm64": {
+          "url": "https://github.com/google/osv-scanner/releases/download/v2.4.0/osv-scanner_darwin_arm64",
+          "sha256": "9ca3185ad63e9ab54f7cb90f46a7362be02d80e37f0123d095a54355ea202f5d",
+          "archive": "none",
+          "binary": "osv-scanner"
+        }
+      }
+    },
+    "gitleaks": {
+      "version": "8.30.1",
+      "command": "gitleaks",
+      "kind": "tar_binary",
+      "provenance_url": "https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1",
+      "assets": {
+        "darwin_arm64": {
+          "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_arm64.tar.gz",
+          "sha256": "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5",
+          "archive": "tar.gz",
+          "binary": "gitleaks"
+        }
+      }
+    },
+    "actionlint": {
+      "version": "1.7.12",
+      "command": "actionlint",
+      "kind": "tar_binary",
+      "provenance_url": "https://github.com/rhysd/actionlint/releases/tag/v1.7.12",
+      "assets": {
+        "darwin_arm64": {
+          "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_darwin_arm64.tar.gz",
+          "sha256": "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f",
+          "archive": "tar.gz",
+          "binary": "actionlint"
+        }
+      }
+    },
+    "zizmor": {
+      "version": "1.26.1",
+      "command": "zizmor",
+      "kind": "tar_binary",
+      "provenance_url": "https://github.com/zizmorcore/zizmor/releases/tag/v1.26.1",
+      "assets": {
+        "darwin_arm64": {
+          "url": "https://github.com/zizmorcore/zizmor/releases/download/v1.26.1/zizmor-aarch64-apple-darwin.tar.gz",
+          "sha256": "68ab2b37836bbd44f6cfffcc102b9ffffbc20c5d67d84293dafb63bd2775a1da",
+          "archive": "tar.gz",
+          "binary": "zizmor"
+        }
+      }
+    }
+  }
+}

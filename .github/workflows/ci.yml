@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main, phase-80-security-contract]
+  workflow_dispatch:
 
 concurrency:
   group: package-ci-${{ github.workflow }}-${{ github.ref }}
@@ -12,31 +13,74 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+
 jobs:
-  package:
-    name: Package acceptance
+  permanent-gates:
+    name: macOS arm64 package permanent gates
     runs-on: macos-26
     steps:
       # reviewed-release: actions/checkout@v4
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - name: Assert macOS arm64 runner
+        with:
+          persist-credentials: false
+      - name: Assert supported host
         run: |
-          test "$(uname -s)" = "Darwin"
-          test "$(uname -m)" = "arm64"
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = arm64
+          uname -a
       - name: Install pinned Rust toolchain
         run: |
           rust_toolchain="$(awk -F'"' '/channel/ { print $2; exit }' rust-toolchain.toml)"
+          msrv="$(awk -F'"' '/rust-version/ { print $2; exit }' Cargo.toml)"
           rustup toolchain install "${rust_toolchain}" --profile minimal --component rustfmt --component clippy
+          rustup toolchain install "${msrv}" --profile minimal
           rustup default "${rust_toolchain}"
           rustup show active-toolchain
-      - name: MSRV check
+          cargo "+${msrv}" --version
+      - name: Install pinned security tools
         run: |
-          msrv="$(awk -F'"' '/rust-version/ { print $2; exit }' Cargo.toml)"
-          rustup toolchain install "${msrv}" --profile minimal
-          cargo "+${msrv}" check --all-targets --all-features
+          scripts/ci/install-pinned-tools.sh
+          echo "$GITHUB_WORKSPACE/.phase80/tools/bin" >> "$GITHUB_PATH"
+      - name: Verify pinned security tools
+        run: scripts/ci/install-pinned-tools.sh --verify-only
+      - name: Dependency, license, source, and advisory policy
+        run: cargo deny --config deny.toml check
+      - name: Cross-ecosystem vulnerability policy
+        run: |
+          lockfiles=(--lockfile Cargo.lock)
+          if [[ -f sidecar/package-lock.json ]]; then
+            lockfiles+=(--lockfile sidecar/package-lock.json)
+          fi
+          osv-scanner scan source --config .osv-scanner.toml "${lockfiles[@]}"
+      - name: Source secret policy
+        run: scripts/ci/run-gitleaks-source.sh --report "$RUNNER_TEMP/gitleaks-source.json"
+      - name: Workflow syntax
+        run: actionlint .github/workflows/*.yml
+      - name: Workflow security
+        run: zizmor --persona=pedantic .github/workflows
+      - name: Full-SHA action refs only
+        run: |
+          python3 - <<'PYREFS'
+          from pathlib import Path
+          import re
+          bad = []
+          pattern = re.compile(r"uses:\s*[^#\n]+@(main|master|v?\d+(?:\.\d+){0,2})(?:[ #]|$)")
+          for path in Path('.github/workflows').glob('*.yml'):
+              for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                  if pattern.search(line):
+                      bad.append(f"{path}:{number}:{line.strip()}")
+          if bad:
+              print("workflow action references must be pinned to reviewed full SHAs")
+              print("\n".join(bad))
+              raise SystemExit(1)
+          PYREFS
       - name: Package acceptance
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: "true"
           GIT_CONFIG_GLOBAL: /dev/null
           GIT_TERMINAL_PROMPT: "0"
+          OTTO_FLEET_OFFLINE: "1"
         run: scripts/ci/package-acceptance.sh

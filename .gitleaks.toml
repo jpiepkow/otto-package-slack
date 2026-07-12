@@ -1,0 +1,14 @@
+title = "Otto package gitleaks policy"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "package-local build outputs are not source gates"
+paths = [
+  '''^\.phase80/''',
+  '''^target/''',
+  '''^node_modules/''',
+  '''^sidecar/node_modules/''',
+  '''^sidecar/dist/'''
+]
