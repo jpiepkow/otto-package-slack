@@ -130,6 +130,39 @@
           "minLength": 8,
           "maxLength": 128,
           "pattern": "^[a-z0-9:._-]+$"
+        },
+        "reactions": {
+          "description": "Bounded reaction summary, present only when the message has reactions and the token carries reactions:read. Reacting member ids are never echoed.",
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/reaction"
+          }
+        },
+        "reactions_truncated": {
+          "description": "True when the message carried more distinct reactions than the summary cap.",
+          "type": "boolean"
+        }
+      }
+    },
+    "reaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "count"],
+      "properties": {
+        "name": {
+          "description": "Slack emoji name without surrounding colons.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "users_truncated": {
+          "description": "True when Slack reported reacting member ids, which are deliberately not echoed into read output.",
+          "type": "boolean"
         }
       }
     },

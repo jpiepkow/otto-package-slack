@@ -45,6 +45,19 @@ const DEFAULT_ATTRIBUTION_NAME: &str = "an approver";
 /// infer that a reaction was gated the same way a send was (BUG-007).
 const SEND_MESSAGE_APPROVED_SUMMARY: &str = "Sent Slack message through approved send grant.";
 
+/// Maximum reaction summaries surfaced per message in read output.
+///
+/// Slack allows dozens of distinct reactions on one message. Reads stay bounded
+/// the same way message bodies and counts are, and report the overflow instead
+/// of growing without limit.
+const MAX_MESSAGE_REACTIONS: usize = 8;
+
+/// Maximum characters kept from a Slack emoji name in read output.
+const MAX_REACTION_NAME_CHARS: usize = 96;
+
+/// Maximum reacted messages named in the model-facing read text.
+const MAX_TEXT_REACTION_MESSAGES: usize = 3;
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct JsonRpcRequest {
@@ -819,7 +832,11 @@ impl Runtime {
             )
             .await?;
         let messages = bounded_messages(&response, config.max_message_chars);
-        let summary = format!("Read {} Slack thread messages.", messages.len());
+        let summary = format!(
+            "Read {} Slack thread messages.{}",
+            messages.len(),
+            reaction_text_suffix(&messages)
+        );
         Ok(ok_result(
             &summary,
             json!({
@@ -858,7 +875,11 @@ impl Runtime {
             )
             .await?;
         let messages = bounded_messages(&response, config.max_message_chars);
-        let summary = format!("Read {} recent Slack channel messages.", messages.len());
+        let summary = format!(
+            "Read {} recent Slack channel messages.{}",
+            messages.len(),
+            reaction_text_suffix(&messages)
+        );
         Ok(ok_result(
             &summary,
             json!({
@@ -957,7 +978,11 @@ impl Runtime {
             )
             .await?;
         let messages = bounded_messages(&response, config.max_message_chars);
-        let summary = format!("Read {} recent Slack DM messages.", messages.len());
+        let summary = format!(
+            "Read {} recent Slack DM messages.{}",
+            messages.len(),
+            reaction_text_suffix(&messages)
+        );
         Ok(ok_result(
             &summary,
             json!({
@@ -1721,18 +1746,128 @@ fn bounded_messages(response: &Value, max_chars: usize) -> Vec<Value> {
                         .or_else(|| message.get("bot_id").and_then(Value::as_str))
                         .unwrap_or("unknown");
                     let body = message.get("text").and_then(Value::as_str).unwrap_or("");
-                    json!({
+                    let mut entry = json!({
                         "message_ref": message_ref(ts),
                         "author_ref": actor_ref(user),
                         "sent_at": Value::Null,
                         "body": bound(body, max_chars),
                         "body_chars": body.chars().count().min(max_chars),
                         "body_digest": format!("slack:{}", sanitize_ref(ts))
-                    })
+                    });
+                    if let Some((reactions, truncated)) = bounded_reactions(message) {
+                        let object = entry
+                            .as_object_mut()
+                            .expect("bounded message entry is a JSON object");
+                        object.insert("reactions".to_owned(), reactions);
+                        object.insert("reactions_truncated".to_owned(), Value::Bool(truncated));
+                    }
+                    entry
                 })
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// Bounded, secret-free reaction summary for one Slack message.
+///
+/// Slack attaches `reactions: [{name, count, users: [...]}]` to a message in
+/// `conversations.history` / `conversations.replies` output only when the
+/// message has reactions AND the token carries `reactions:read`. Returns
+/// `None` when the field is absent or empty, so an unreacted message's read
+/// output is unchanged.
+///
+/// The summary keeps `{name, count}` only. The per-reaction `users` member list
+/// is NEVER echoed — it is reduced to a `users_truncated` marker — because a
+/// read that verifies a reaction must not quietly become a channel-membership
+/// disclosure. Entries are capped at [`MAX_MESSAGE_REACTIONS`], mirroring how
+/// the package already bounds message bodies and counts, and the overflow is
+/// reported rather than silently dropped (BUG-007).
+fn bounded_reactions(message: &Value) -> Option<(Value, bool)> {
+    let reactions = message.get("reactions").and_then(Value::as_array)?;
+    if reactions.is_empty() {
+        return None;
+    }
+    let summarized = reactions
+        .iter()
+        .take(MAX_MESSAGE_REACTIONS)
+        .map(|reaction| {
+            let name = reaction
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let count = reaction.get("count").and_then(Value::as_u64).unwrap_or(0);
+            let users_truncated = reaction
+                .get("users")
+                .and_then(Value::as_array)
+                .is_some_and(|users| !users.is_empty());
+            json!({
+                "name": bound(name, MAX_REACTION_NAME_CHARS),
+                "count": count,
+                "users_truncated": users_truncated
+            })
+        })
+        .collect::<Vec<_>>();
+    Some((
+        Value::Array(summarized),
+        reactions.len() > MAX_MESSAGE_REACTIONS,
+    ))
+}
+
+/// Bounded model-facing sentence describing the reactions present in a read.
+///
+/// Operates on entries already shaped by [`bounded_messages`], so it can only
+/// ever see the capped, `users`-free summary — the raw Slack payload is out of
+/// reach by construction. Returns an empty string when nothing is reacted, so an
+/// unreacted read's text is byte-identical to before. Otherwise it names at most
+/// [`MAX_TEXT_REACTION_MESSAGES`] reacted messages with the same `{name, count}`
+/// pairs carried in `structured_content`, so a reaction side effect is
+/// verifiable from either channel (BUG-007).
+fn reaction_text_suffix(messages: &[Value]) -> String {
+    let reacted = messages
+        .iter()
+        .filter(|message| {
+            message
+                .get("reactions")
+                .and_then(Value::as_array)
+                .is_some_and(|reactions| !reactions.is_empty())
+        })
+        .collect::<Vec<_>>();
+    if reacted.is_empty() {
+        return String::new();
+    }
+    let described = reacted
+        .iter()
+        .take(MAX_TEXT_REACTION_MESSAGES)
+        .map(|message| {
+            let reference = message
+                .get("message_ref")
+                .and_then(Value::as_str)
+                .unwrap_or("message.unknown");
+            let pairs = message
+                .get("reactions")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .map(|reaction| {
+                    let name = reaction
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown");
+                    let count = reaction.get("count").and_then(Value::as_u64).unwrap_or(0);
+                    format!(":{name}: x{count}")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{reference} {pairs}")
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    let overflow = if reacted.len() > MAX_TEXT_REACTION_MESSAGES {
+        "; …"
+    } else {
+        ""
+    };
+    format!(" {} with reactions: {described}{overflow}.", reacted.len())
 }
 
 fn bounded_search_matches(response: &Value, max_chars: usize) -> Vec<Value> {
