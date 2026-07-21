@@ -38,6 +38,13 @@ const DEFAULT_ATTRIBUTION_TEMPLATE: &str = "— Reviewed & approved to send via 
 /// Fallback approver label used when attribution is enabled without a name.
 const DEFAULT_ATTRIBUTION_NAME: &str = "an approver";
 
+/// Model-facing result text for a successful, approved `send_message`.
+///
+/// Every destructive Slack tool reports the approved grant path with the same
+/// wording, so a reader of either result sees one phrasing rather than having to
+/// infer that a reaction was gated the same way a send was (BUG-007).
+const SEND_MESSAGE_APPROVED_SUMMARY: &str = "Sent Slack message through approved send grant.";
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct JsonRpcRequest {
@@ -1237,7 +1244,7 @@ impl Runtime {
             .slack_api(&config.identity_token, "chat.postMessage", &form)
             .await?;
         Ok(ok_result(
-            "Sent Slack message through approved send grant.",
+            SEND_MESSAGE_APPROVED_SUMMARY,
             json!({
                 "workspace_ref": config.workspace_ref,
                 "channel_ref": channel_ref(&channel),
@@ -1313,7 +1320,7 @@ impl Runtime {
                 ],
             )
             .await?;
-        let summary = format!("Added Slack reaction :{name}:.");
+        let summary = add_reaction_summary(&name);
         Ok(ok_result(
             &summary,
             json!({
@@ -1684,6 +1691,16 @@ fn slack_notification_from_envelope(
             occurred_at: None,
         },
     })
+}
+
+/// Model-facing result text for a successful, approved `add_reaction`.
+///
+/// Structurally mirrors [`SEND_MESSAGE_APPROVED_SUMMARY`]: the acting verb
+/// differs, the "through approved send grant" phrase does not. Both destructive
+/// Slack tools are `requires_approval = true` against `cap.default.slack.send`,
+/// and both now say so (BUG-007).
+fn add_reaction_summary(name: &str) -> String {
+    format!("Added Slack reaction :{name}: through approved send grant.")
 }
 
 fn bounded_messages(response: &Value, max_chars: usize) -> Vec<Value> {
