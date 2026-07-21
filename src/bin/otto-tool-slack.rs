@@ -2779,6 +2779,165 @@ mod tests {
         );
     }
 
+    /// A `conversations.history` / `conversations.replies` response shaped the
+    /// way Slack returns one when the token carries `reactions:read`: the first
+    /// message has reactions (each with a `users` member array), the second has
+    /// no `reactions` key at all.
+    fn reacted_history_response() -> Value {
+        json!({
+            "ok": true,
+            "messages": [
+                {
+                    "ts": "1782957738.004499",
+                    "user": "U0B72HQEZ09",
+                    "text": "Otto acceptance marker.",
+                    "reactions": [
+                        {
+                            "name": "white_check_mark",
+                            "count": 2,
+                            "users": ["U0B72HQEZ09", "U0B72HQEZ10"]
+                        },
+                        {
+                            "name": "eyes",
+                            "count": 1,
+                            "users": ["U0B72HQEZ11"]
+                        }
+                    ]
+                },
+                {
+                    "ts": "1782957739.004500",
+                    "user": "U0B72HQEZ09",
+                    "text": "A message nobody reacted to."
+                }
+            ]
+        })
+    }
+
+    #[test]
+    fn read_output_surfaces_bounded_reaction_summary() {
+        // BUG-007 (2): a reaction side effect must be verifiable through a
+        // SEPARATE read, not only from the mutating call's own response.
+        let messages = bounded_messages(&reacted_history_response(), 1200);
+        let reactions = messages[0]["reactions"]
+            .as_array()
+            .expect("a reacted message carries a reaction summary");
+        assert_eq!(reactions.len(), 2);
+        assert_eq!(reactions[0]["name"], "white_check_mark");
+        assert_eq!(reactions[0]["count"], 2);
+        assert_eq!(reactions[1]["name"], "eyes");
+        assert_eq!(reactions[1]["count"], 1);
+        assert_eq!(messages[0]["reactions_truncated"], false);
+        // The same pairs are mirrored into the model-facing text so a reaction
+        // is verifiable without parsing the structured payload.
+        let text = reaction_text_suffix(&messages);
+        assert!(
+            text.contains("message.1782957738.004499"),
+            "reacted message is named in the read text: {text}"
+        );
+        assert!(
+            text.contains(":white_check_mark: x2"),
+            "reaction name and count appear in the read text: {text}"
+        );
+    }
+
+    #[test]
+    fn read_output_never_echoes_the_slack_users_array() {
+        // Reads stay bounded and secret-free: Slack's per-reaction `users`
+        // member list is reduced to a marker, never echoed into read output.
+        let messages = bounded_messages(&reacted_history_response(), 1200);
+        let serialized = Value::Array(messages.clone()).to_string();
+        assert!(
+            !serialized.contains("U0B72HQEZ10"),
+            "reacting member ids must not reach read output: {serialized}"
+        );
+        assert!(
+            !serialized.contains("\"users\""),
+            "the raw Slack users array must not reach read output: {serialized}"
+        );
+        assert_eq!(messages[0]["reactions"][0]["users_truncated"], true);
+        let text = reaction_text_suffix(&messages);
+        assert!(
+            !text.contains("U0B72HQEZ10"),
+            "reacting member ids must not reach the read text: {text}"
+        );
+    }
+
+    #[test]
+    fn read_output_omits_reactions_for_messages_without_them() {
+        // The field is ABSENT (not null, not an empty array) unless the message
+        // actually has reactions, so an unreacted read is unchanged.
+        let messages = bounded_messages(&reacted_history_response(), 1200);
+        let unreacted = messages[1].as_object().expect("message object");
+        assert!(
+            !unreacted.contains_key("reactions"),
+            "an unreacted message carries no reaction summary: {unreacted:?}"
+        );
+        assert!(
+            !unreacted.contains_key("reactions_truncated"),
+            "an unreacted message carries no truncation marker: {unreacted:?}"
+        );
+        // A response where NO message has reactions produces no text suffix at
+        // all, so existing read wording is byte-identical.
+        let plain = bounded_messages(
+            &json!({ "messages": [{ "ts": "1.0", "user": "U1", "text": "hi" }] }),
+            1200,
+        );
+        assert_eq!(reaction_text_suffix(&plain), "");
+        // An explicitly empty reactions array is treated as no reactions.
+        let empty = bounded_messages(
+            &json!({
+                "messages": [{ "ts": "1.0", "user": "U1", "text": "hi", "reactions": [] }]
+            }),
+            1200,
+        );
+        assert!(
+            !empty[0]
+                .as_object()
+                .expect("object")
+                .contains_key("reactions")
+        );
+    }
+
+    #[test]
+    fn read_output_caps_reaction_entries_per_message() {
+        // Slack allows dozens of distinct reactions on one message; read output
+        // is capped the same way message bodies are, with a truncation marker.
+        let many = (0..MAX_MESSAGE_REACTIONS + 4)
+            .map(|index| json!({ "name": format!("emoji_{index}"), "count": 1 }))
+            .collect::<Vec<_>>();
+        let messages = bounded_messages(
+            &json!({
+                "messages": [{
+                    "ts": "1782957738.004499",
+                    "user": "U1",
+                    "text": "many reactions",
+                    "reactions": many
+                }]
+            }),
+            1200,
+        );
+        assert_eq!(
+            messages[0]["reactions"].as_array().map(Vec::len),
+            Some(MAX_MESSAGE_REACTIONS),
+            "reaction entries are capped at MAX_MESSAGE_REACTIONS"
+        );
+        assert_eq!(messages[0]["reactions_truncated"], true);
+    }
+
+    #[test]
+    fn read_thread_and_read_channel_share_the_same_reaction_shape() {
+        // read_thread reads conversations.replies and read_channel reads
+        // conversations.history; both return {"messages": [...]} and both are
+        // shaped by the SAME bounded_messages construction site, so reaction
+        // metadata cannot be present in one read tool and missing in the other.
+        let replies = reacted_history_response();
+        let history = reacted_history_response();
+        assert_eq!(
+            bounded_messages(&replies, 1200),
+            bounded_messages(&history, 1200)
+        );
+    }
+
     #[test]
     fn search_requires_user_token_rejects_bot_token() {
         let error = search_requires_user_token("xoxb-abc")
