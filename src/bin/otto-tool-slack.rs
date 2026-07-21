@@ -2737,6 +2737,32 @@ mod tests {
     }
 
     #[test]
+    fn add_reaction_summary_reports_the_approved_grant_path_like_send_message() {
+        // BUG-007 (1): add_reaction returned ok:true but its result text did not
+        // name the approved grant path the way send_message does, so the approval
+        // gate was only implied. Both destructive tools now report the same
+        // literal phrase. Asserted as literal substrings so a future reword of
+        // either tool is caught here rather than in a live UAT transcript.
+        let summary = add_reaction_summary("white_check_mark");
+        assert_eq!(
+            summary,
+            "Added Slack reaction :white_check_mark: through approved send grant."
+        );
+        assert!(
+            summary.contains("through approved send grant"),
+            "add_reaction names the approved grant path: {summary}"
+        );
+        assert_eq!(
+            SEND_MESSAGE_APPROVED_SUMMARY,
+            "Sent Slack message through approved send grant."
+        );
+        assert!(
+            SEND_MESSAGE_APPROVED_SUMMARY.contains("through approved send grant"),
+            "send_message keeps the shared approved-grant phrase: {SEND_MESSAGE_APPROVED_SUMMARY}"
+        );
+    }
+
+    #[test]
     fn search_requires_user_token_rejects_bot_token() {
         let error = search_requires_user_token("xoxb-abc")
             .expect_err("bot token must be rejected for search.messages");
