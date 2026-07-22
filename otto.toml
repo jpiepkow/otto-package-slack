@@ -99,6 +99,10 @@ description = "Read messages from a specific Slack thread. Requires a Slack chan
 input_schema = "schema.default.slack.read_thread_input"
 required_capabilities = ["cap.default.slack.read"]
 requires_approval = false
+read_only = true
+destructive = false
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
 
@@ -109,6 +113,10 @@ description = "Read recent messages from one Slack channel. Prefer channel_id wi
 input_schema = "schema.default.slack.read_thread_input"
 required_capabilities = ["cap.default.slack.read"]
 requires_approval = false
+read_only = true
+destructive = false
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
 
@@ -119,6 +127,10 @@ description = "Read recent direct-message conversations visible to this Slack to
 input_schema = "schema.default.slack.read_thread_input"
 required_capabilities = ["cap.default.slack.read"]
 requires_approval = false
+read_only = true
+destructive = false
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
 
@@ -129,6 +141,10 @@ description = "List Slack channels, private channels, DMs, and group DMs visible
 input_schema = "schema.default.slack.read_thread_input"
 required_capabilities = ["cap.default.slack.read"]
 requires_approval = false
+read_only = true
+destructive = false
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
 
@@ -139,6 +155,10 @@ description = "Find Slack users visible to this token. Use this before opening a
 input_schema = "schema.default.slack.read_thread_input"
 required_capabilities = ["cap.default.slack.read"]
 requires_approval = false
+read_only = true
+destructive = false
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
 
@@ -149,6 +169,10 @@ description = "Open or resolve a Slack DM channel for a user. Requires user_id w
 input_schema = "schema.default.slack.read_thread_input"
 required_capabilities = ["cap.default.slack.read"]
 requires_approval = false
+read_only = true
+destructive = false
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
 
@@ -159,6 +183,10 @@ description = "Search workspace messages with a Slack search query (words, in:#c
 input_schema = "schema.default.slack.search_messages_input"
 required_capabilities = ["cap.default.slack.read"]
 requires_approval = false
+read_only = true
+destructive = false
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = false }
 
@@ -169,6 +197,10 @@ description = "Add an emoji reaction to a message by channel + ts. Provide the e
 input_schema = "schema.default.slack.add_reaction_input"
 required_capabilities = ["cap.default.slack.send"]
 requires_approval = true
+read_only = false
+destructive = true
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = true }
 
@@ -179,6 +211,10 @@ description = "Send a Slack message only after Otto approval. Requires text/body
 input_schema = "schema.default.slack.send_message_input"
 required_capabilities = ["cap.default.slack.send"]
 requires_approval = true
+read_only = false
+destructive = true
+idempotent = false
+open_world = true
 runtime_commands = ["slack", "slack-cli"]
 scope_defaults = { thread_scope = "channel_threads", max_thread_messages = 20, max_message_chars = 1200, max_body_chars = 1200, max_source_refs = 8, allow_send_validation = true }
 

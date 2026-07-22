@@ -1,3 +1,5 @@
+use otto_extension_sdk::roles::ToolRegistration;
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use toml::Value;
 
@@ -97,6 +99,113 @@ fn slack_package_manifest_contract() {
 
     let redaction = collect_ids(&manifest, "redaction");
     assert!(redaction.contains(&"redaction.default.slack.message_content"));
+}
+
+#[derive(Debug, Deserialize)]
+struct ManifestTools {
+    tools: Vec<ToolRegistration>,
+}
+
+/// Reads the manifest's `[[tools]]` through the very type Otto deserializes it
+/// with, so serde defaults land exactly as they do in the control plane.
+fn manifest_tool_registrations() -> Vec<ToolRegistration> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let manifest = std::fs::read_to_string(root.join("otto.toml")).expect("read otto.toml");
+    toml::from_str::<ManifestTools>(&manifest)
+        .expect("otto.toml [[tools]] must deserialize as ToolRegistration")
+        .tools
+}
+
+/// The manifest is the tool metadata Otto actually stores and enforces on.
+///
+/// `otto-extension-runtime`'s `persist_scan_report` seeds the registration rows
+/// from `ExtensionRegistrations::from_manifest(&manifest)`, and the only code
+/// path that would replace them with the runtime's `registrations.get` response
+/// (`refresh_registrations`) has no production caller. Core's
+/// `validate_registrations_within_manifest` only checks that runtime IDs stay
+/// within the manifest's ceiling - it never compares annotation *values* - so
+/// the two copies can disagree indefinitely and nothing upstream notices.
+///
+/// They did disagree: `src/lib.rs` declared truthful `read_only`/`open_world`
+/// hints while `otto.toml` omitted all four fields, leaving every tool at the
+/// serde default `false` in the copy the bridge reads. Pin them together.
+#[test]
+fn slack_manifest_tools_match_the_runtime_registrations_exactly() {
+    let manifest_tools = manifest_tool_registrations();
+    let runtime_tools = otto_tool_slack::registrations().tools;
+
+    assert_eq!(
+        manifest_tools.len(),
+        runtime_tools.len(),
+        "manifest and runtime must register the same tools"
+    );
+    for runtime_tool in &runtime_tools {
+        let manifest_tool = manifest_tools
+            .iter()
+            .find(|tool| tool.id == runtime_tool.id)
+            .unwrap_or_else(|| panic!("otto.toml is missing tool {}", runtime_tool.id));
+        assert_eq!(
+            manifest_tool, runtime_tool,
+            "otto.toml and registrations() disagree about {}",
+            runtime_tool.id
+        );
+    }
+}
+
+/// Bridge audit events carry the manifest copy of these annotations, so assert
+/// the Phase 65 matrix there directly rather than only against the runtime copy
+/// the bridge never sees.
+#[test]
+fn slack_manifest_annotations_describe_what_each_tool_actually_does() {
+    let tools = manifest_tool_registrations();
+    let annotations = |suffix: &str| {
+        let id = format!("tool.default.slack.{suffix}");
+        let tool = tools
+            .iter()
+            .find(|tool| tool.id.as_str() == id)
+            .unwrap_or_else(|| panic!("otto.toml is missing {id}"));
+        (
+            tool.read_only,
+            tool.destructive,
+            tool.idempotent,
+            tool.open_world,
+        )
+    };
+
+    // Reads: no external mutation, and every one of them reaches Slack.
+    for tool in [
+        "read_thread",
+        "read_channel",
+        "read_recent_dms",
+        "list_conversations",
+        "list_users",
+        "open_dm",
+        "search_messages",
+    ] {
+        assert_eq!(annotations(tool), (true, false, false, true), "{tool}");
+    }
+
+    // Writes: both mutate workspace state visible to other people, and both
+    // reach the Slack Web API.
+    for tool in ["add_reaction", "send_message"] {
+        assert_eq!(annotations(tool), (false, true, false, true), "{tool}");
+    }
+
+    // Core derives the approval default from `destructive`, so the two must not
+    // drift apart: every mutating tool stays approval-gated.
+    for tool in &tools {
+        assert_eq!(
+            tool.approval_default(),
+            tool.destructive,
+            "{} approval default must track its destructive hint",
+            tool.id
+        );
+        assert!(
+            !(tool.read_only && tool.destructive),
+            "{} cannot be both read-only and destructive",
+            tool.id
+        );
+    }
 }
 
 fn collect_ids<'a>(manifest: &'a Value, section: &str) -> Vec<&'a str> {
